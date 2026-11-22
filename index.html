@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Alarm</title>
+<script src="https://telegram.org"></script>
+<style>
+body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; margin: 0; }
+.clock { font-size: 48px; font-weight: bold; color: #00e676; margin: 15px 0; }
+input, select, button { font-size: 18px; padding: 14px; border-radius: 12px; border: none; width: 100%; max-width: 300px; margin: 6px 0; box-sizing: border-box; }
+input, select { background: #2c2c2c; color: #fff; text-align: center; }
+button { font-weight: bold; color: #fff; background: #2979ff; cursor: pointer; }
+.green { background: #00c853; color: #000; }
+.dark { background: #333; }
+.hidden { display: none; }
+video { width: 100%; max-width: 300px; border-radius: 14px; border: 3px solid #ff1744; transform: scaleX(-1); }
+#msg { color: #ffea00; font-weight: bold; margin-top: 12px; min-height: 24px; }
+</style>
+</head>
+<body>
+<div id="home">
+  <h2>⏰ Умный будильник</h2>
+  <div class="clock" id="clk">00:00:00</div>
+  <input type="time" id="tm">
+  <select id="snd">
+    <option value="siren">🚨 Ядерная сирена</option>
+    <option value="bell">🔔 Мягкий звон</option>
+  </select>
+  <button class="green" onclick="openCal()">📅 Поставить в Календарь (фон)</button>
+  <button onclick="startTimer()">⏳ Таймер на экране</button>
+  <button class="dark" onclick="ringNow()">🚨 Тест звонка сейчас</button>
+  <div id="msg"></div>
+</div>
+<div id="ring" class="hidden">
+  <h2 style="color:#ff1744;">🚨 ПОДЪЁМ! 🚨</h2>
+  <p>Сделай 10 отжиманий перед камерой!</p>
+  <video id="vid" autoplay playsinline></video>
+  <h1 id="cnt" style="color:#ffea00;">0 / 10</h1>
+  <button class="dark" onclick="stopAll()">Отключить (тест)</button>
+</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) tg.expand();
+let target = null, ringing = false, actx = null, tmr = null, reps = 0;
+
+function say(t) { document.getElementById('msg').innerText = t; }
+
+setInterval(() => {
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0'), s = String(d.getSeconds()).padStart(2,'0');
+  document.getElementById('clk').innerText = h + ':' + m + ':' + s;
+  if (target && !ringing && (h + ':' + m) === target && s === '00') ringNow();
+}, 1000);
+
+function makeICS(tStr) {
+  const p = tStr.split(':'), d = new Date();
+  d.setHours(Number(p.at(0)), Number(p.at(1)), 0, 0);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  const f = x => x.getFullYear() + String(x.getMonth()+1).padStart(2,'0') + String(x.getDate()).padStart(2,'0') + 'T' + String(x.getHours()).padStart(2,'0') + String(x.getMinutes()).padStart(2,'0') + '00';
+  const e = new Date(d.getTime() + 600000), nl = '\r\n';
+  return 'BEGIN:VCALENDAR'+nl+'VERSION:2.0'+nl+'BEGIN:VEVENT'+nl+'DTSTART:'+f(d)+nl+'DTEND:'+f(e)+nl+'SUMMARY:🚨 ПОДЪЁМ! 10 отжиманий'+nl+'URL:https://github.io';
+}
+
+function openCal() {
+  const v = document.getElementById('tm').value;
+  if (!v) return say('⚠️ Сначала выбери время сверху!');
+  const url = 'https://github.io' + encodeURIComponent(v);
+  if (tg && tg.openLink) {
+    say('Открываю Safari для добавления в Календарь...');
+    tg.openLink(url);
+  } else {
+    window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(makeICS(v));
+  }
+}
+
+function startTimer() {
+  const v = document.getElementById('tm').value;
+  if (!v) return say('⚠️ Сначала выбери время сверху!');
+  target = v;
+  beep(true);
+  say('✅ Таймер включён на ' + v + ' (не закрывай экран)');
+}
+
+function beep(once) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!actx) actx = new AC();
+  if (actx.state === 'suspended') actx.resume();
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = document.getElementById('snd').value === 'bell' ? 'sine' : 'sawtooth';
+  o.frequency.value = once ? 520 : 880;
+  g.gain.value = once ? 0.05 : 0.5;
+  o.connect(g); g.connect(actx.destination);
+  o.start(); o.stop(actx.currentTime + 0.25);
+}
+
+function ringNow() {
+  ringing = true; reps = 0;
+  document.getElementById('home').classList.add('hidden');
+  document.getElementById('ring').classList.remove('hidden');
+  beep(false);
+  tmr = setInterval(() => { if (ringing) beep(false); }, 500);
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }).then(s => {
+    const vid = document.getElementById('vid'); vid.srcObject = s;
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    let prev = null, down = false;
+    const iv = setInterval(() => {
+      if (!ringing) { clearInterval(iv); s.getTracks().forEach(t => t.stop()); return; }
+      if (vid.readyState === 4) {
+        c.width = 64; c.height = 48; x.drawImage(vid,0,0,64,48);
+        const fr = x.getImageData(0,0,64,48).data;
+        if (prev) {
+          let df = 0;
+          for (let i=0; i<fr.length; i+=16) df += Math.abs(fr.at(i) - prev.at(i));
+          if (df > 18000 && !down) down = true;
+          else if (df < 8000 && down) { down = false; reps++; document.getElementById('cnt').innerText = reps + ' / 10'; if (reps >= 10) stopAll(); }
+        }
+        prev = fr;
+      }
+    }, 200);
+  }).catch(() => {});
+}
+
+function stopAll() {
+  ringing = false; clearInterval(tmr); target = null;
+  document.getElementById('ring').classList.add('hidden');
+  document.getElementById('home').classList.remove('hidden');
+  say('✅ Будильник выключен!');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('ring') === '1') ringNow();
+  if (p.get('cal')) {
+    document.getElementById('tm').value = p.get('cal');
+    window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(makeICS(p.get('cal')));
+  }
+});
+</script>
+</body>
+</html>
