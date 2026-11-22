@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Умный будильник</title>
+  <style>
+    /* ---------- GLOBAL RESET & FONTS ---------- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ---------- IOS SAFE AREA & FULLSCREEN ---------- */
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      height: 100vh;
+      height: 100dvh;
+      padding: calc(16px + env(safe-area-inset-top)) 20px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #000 70%);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .app::-webkit-scrollbar { display: none; }
+
+    /* ---------- GLASSMORPHISM CARDS ---------- */
+    .glass {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 28px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.3s ease;
+    }
+
+    /* ---------- NEON CLOCK ---------- */
+    .clock-container {
+      text-align: center;
+      padding: 10px 0 4px;
+    }
+    .clock-time {
+      font-size: 82px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      line-height: 1;
+      color: #fff;
+      text-shadow:
+        0 0 12px #0ff,
+        0 0 40px #0ff,
+        0 0 80px #0ff,
+        0 0 120px #0af;
+      transition: text-shadow 0.4s ease, color 0.4s ease;
+    }
+    .clock-time.dim {
+      color: #2a2a3a;
+      text-shadow: 0 0 8px #0a0a1a;
+    }
+    .clock-date {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ---------- SECTION TITLES ---------- */
+    .section-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 12px;
+      padding-left: 4px;
+    }
+
+    /* ---------- TIME PICKER ---------- */
+    .time-picker-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .time-select {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 14px 8px;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 600;
+      text-align: center;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      cursor: pointer;
+    }
+    .time-select option {
+      background: #1c1c2e;
+      color: #fff;
+    }
+
+    /* ---------- BUTTONS ---------- */
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 18px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.2s ease;
+      color: #fff;
+      letter-spacing: 0.3px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: linear-gradient(135deg, #0ff, #08f);
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #f0f, #f50);
+      color: #fff;
+      border: none;
+      box-shadow: 0 4px 20px rgba(255, 0, 255, 0.3);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .btn-sm {
+      padding: 12px 14px;
+      font-size: 15px;
+      border-radius: 14px;
+    }
+
+    /* ---------- MELODY / TASK GRIDS ---------- */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .choice {
+      padding: 14px 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .choice:active { transform: scale(0.96); }
+    .choice.active {
+      border-color: #0ff;
+      background: rgba(0, 255, 255, 0.12);
+      box-shadow: 0 0 18px rgba(0, 255, 255, 0.2);
+    }
+    .choice .emoji { font-size: 18px; }
+
+    /* ---------- NIGHT MODE HINT ---------- */
+    .night-hint {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+      text-align: center;
+      margin-top: 8px;
+      line-height: 1.4;
+      padding: 0 8px;
+    }
+
+    /* ---------- ALARM ACTIVE INDICATOR ---------- */
+    .alarm-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(0, 255, 255, 0.08);
+      border: 1px solid rgba(0, 255, 255, 0.25);
+      color: #0ff;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0ff;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    /* ---------- RINGING OVERLAY ---------- */
+    .ring-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      text-align: center;
+      animation: fadeIn 0.4s ease;
+    }
+    .ring-overlay.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .ring-clock {
+      font-size: 64px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 30px #f0f, 0 0 60px #f0f;
+      margin-bottom: 10px;
+      animation: ringPulse 1s infinite alternate;
+    }
+    @keyframes ringPulse {
+      from { text-shadow: 0 0 20px #f0f, 0 0 40px #f0f; }
+      to { text-shadow: 0 0 40px #0ff, 0 0 80px #0ff; }
+    }
+    .ring-label {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 30px;
+    }
+
+    /* ---------- TASK AREA ---------- */
+    .task-area {
+      width: 100%;
+      max-width: 360px;
+      margin-bottom: 20px;
+    }
+    .task-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .task-counter {
+      font-size: 48px;
+      font-weight: 700;
+      color: #0ff;
+      text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+      margin: 10px 0;
+    }
+    .task-counter small {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 400;
+    }
+    .math-problem {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      margin: 16px 0;
+      letter-spacing: 2px;
+    }
+    .math-input {
+      width: 140px;
+      padding: 14px;
+      font-size: 28px;
+      text-align: center;
+      border-radius: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      outline: none;
+      margin: 10px auto;
+      display: block;
+      font-weight: 600;
+    }
+    .math-input:focus { border-color: #0ff; }
+
+    .video-preview {
+      width: 200px;
+      height: 150px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      margin: 16px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+    .video-preview video, .video-preview canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .video-preview .cam-placeholder {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.3);
+      text-align: center;
+      padding: 10px;
+    }
+
+    /* ---------- TOAST ---------- */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 14px 24px;
+      font-size: 14px;
+      color: #fff;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      z-index: 2000;
+      max-width: 80%;
+      text-align: center;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ---------- HIDDEN ---------- */
+    .hidden { display: none !important; }
+
+    /* ---------- SCROLL CONTAINER ---------- */
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 20px;
+      scrollbar-width: none;
+    }
+    .scroll-content::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Clock -->
+    <div class="clock-container">
+      <div class="clock-time" id="clockDisplay">00:00</div>
+      <div class="clock-date" id="dateDisplay">—</div>
+    </div>
+
+    <div class="scroll-content">
+      <!-- Alarm status badge -->
+      <div id="alarmBadge" class="alarm-badge hidden">
+        <span class="pulse-dot"></span>
+        <span id="alarmBadgeText">Будильник включён</span>
+      </div>
+
+      <!-- Time picker -->
+      <div class="glass">
+        <div class="section-label">Время подъёма</div>
+        <div class="time-picker-row">
+          <select class="time-select" id="hourSelect"></select>
+          <select class="time-select" id="minuteSelect"></select>
+        </div>
+        <button class="btn btn-primary" id="toggleAlarmBtn">Включить будильник</button>
+      </div>
+
+      <!-- Melody selection -->
+      <div class="glass">
+        <div class="section-label">Мелодия</div>
+        <div class="grid-4" id="melodyGrid">
+          <div class="choice" data-melody="field">
+            <span class="emoji">🌻</span> Летнее поле
+          </div>
+          <div class="choice" data-melody="gentle">
+            <span class="emoji">🌸</span> Аккуратная
+          </div>
+          <div class="choice" data-melody="classic">
+            <span class="emoji">⏰</span> Обычная
+          </div>
+          <div class="choice" data-melody="bass">
+            <span class="emoji">🔊</span> Звонкий бас
+          </div>
+        </div>
+      </div>
+
+      <!-- Task selection -->
+      <div class="glass">
+        <div class="section-label">Задание для отключения</div>
+        <div class="grid-3" id="taskGrid">
+          <div class="choice" data-task="pushups">
+            <span class="emoji">💪</span> 10 отжиманий (камера)
+          </div>
+          <div class="choice" data-task="squats">
+            <span class="emoji">🦵</span> 10 приседаний (камера)
+          </div>
+          <div class="choice" data-task="math">
+            <span class="emoji">🧮</span> 3 математических примера
+          </div>
+        </div>
+      </div>
+
+      <!-- Test button -->
+      <button class="btn btn-secondary" id="testBtn">🔔 Тест звонка сейчас</button>
+
+      <!-- Night mode -->
+      <div class="glass" style="text-align:center;">
+        <button class="btn btn-secondary" id="nightModeBtn">🌙 Ночной режим</button>
+        <div class="night-hint">
+          Не блокируйте экран кнопкой. На iPhone OLED почти не тратит заряд, на Android лучше подключить зарядку
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ringing overlay -->
+  <div class="ring-overlay" id="ringOverlay">
+    <div class="ring-clock" id="ringClock">00:00</div>
+    <div class="ring-label">Пора вставать!</div>
+    <div class="task-area" id="taskArea"></div>
+    <button class="btn btn-danger hidden" id="stopAlarmBtn" style="margin-top:10px;">Отключить будильник</button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Audio context (created on first user interaction) -->
+  <script>
+    'use strict';
+
+    // ==================== TELEGRAM WEBAPP SETUP ====================
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.requestFullscreen) {
+        try { tg.requestFullscreen(); } catch(e) {}
+      }
+      tg.setHeaderColor?.('#000000');
+      tg.setBackgroundColor?.('#000000');
+    }
+
+    // ==================== DOM REFERENCES ====================
+    const clockDisplay = document.getElementById('clockDisplay');
+    const dateDisplay = document.getElementById('dateDisplay');
+    const hourSelect = document.getElementById('hourSelect');
+    const minuteSelect = document.getElementById('minuteSelect');
+    const toggleAlarmBtn = document.getElementById('toggleAlarmBtn');
+    const melodyGrid = document.getElementById('melodyGrid');
+    const taskGrid = document.getElementById('taskGrid');
+    const testBtn = document.getElementById('testBtn');
+    const nightModeBtn = document.getElementById('nightModeBtn');
+    const ringOverlay = document.getElementById('ringOverlay');
+    const ringClock = document.getElementById('ringClock');
+    const taskArea = document.getElementById('taskArea');
+    const stopAlarmBtn = document.getElementById('stopAlarmBtn');
+    const toastEl = document.getElementById('toast');
+    const alarmBadge = document.getElementById('alarmBadge');
+    const alarmBadgeText = document.getElementById('alarmBadgeText');
+
+    // ==================== STATE ====================
+    const state = {
+      alarmEnabled: false,
+      alarmHour: 7,
+      alarmMinute: 0,
+      melody: 'field',
+      task: 'pushups',
+      nightMode: false,
+      ringing: false,
+      lastTriggeredMinute: null,
+      audioCtx: null,
+      keepAliveInterval: null,
+      hapticInterval: null,
+      wakeLock: null,
+      // Task-specific
+      repCount: 0,
+      mathProblems: [],
+      mathIndex: 0,
+      mathCorrect: 0,
+      stream: null,
+      motionDetectionInterval: null,
+      lastMotionTime: 0,
+      lastPosition: null,
+    };
+
+    // ==================== INITIALIZATION ====================
+    function populateSelectors() {
+      for (let i = 0; i < 24; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = String(i).padStart(2, '0');
+        hourSelect.appendChild(opt);
+      }
+      for (let i = 0; i < 60; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = String(i).padStart(2, '0');
+        minuteSelect.appendChild(opt);
+      }
+      hourSelect.value = state.alarmHour;
+      minuteSelect.value = state.alarmMinute;
+    }
+    populateSelectors();
+
+    // Set active melody/task defaults
+    document.querySelector(`[data-melody="${state.melody}"]`)?.classList.add('active');
+    document.querySelector(`[data-task="${state.task}"]`)?.classList.add('active');
+
+    // ==================== CLOCK ====================
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const timeStr = `${h}:${m}`;
+
+      if (state.nightMode && !state.ringing) {
+        clockDisplay.textContent = timeStr;
+        clockDisplay.classList.add('dim');
+      } else {
+        clockDisplay.textContent = timeStr;
+        clockDisplay.classList.remove('dim');
+      }
+
+      const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+      const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      dateDisplay.textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+
+      ringClock.textContent = timeStr;
+
+      // Alarm check - any second in the selected minute, once per minute
+      if (state.alarmEnabled && !state.ringing) {
+        const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
+        if (now.getHours() === state.alarmHour && now.getMinutes() === state.alarmMinute) {
+          if (state.lastTriggeredMinute !== minuteKey) {
+            state.lastTriggeredMinute = minuteKey;
+            triggerAlarm();
+          }
+        }
+      }
+
+      // Reset lastTriggeredMinute when minute changes away from alarm time
+      if (state.alarmEnabled) {
+        const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
+        if (now.getHours() !== state.alarmHour || now.getMinutes() !== state.alarmMinute) {
+          if (state.lastTriggeredMinute === minuteKey) {
+            state.lastTriggeredMinute = null;
+          }
+        }
+      }
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ==================== AUDIO CONTEXT & KEEP-ALIVE ====================
+    function initAudioCtx() {
+      if (!state.audioCtx) {
+        try {
+          state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {
+          console.warn('AudioContext not available', e);
+        }
+      }
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+      return state.audioCtx;
+    }
+
+    // Silent keep-alive: every 15s play a near-silent oscillator for 0.05s
+    function startKeepAlive() {
+      stopKeepAlive();
+      state.keepAliveInterval = setInterval(() => {
+        if (!state.audioCtx) return;
+        try {
+          const osc = state.audioCtx.createOscillator();
+          const gain = state.audioCtx.createGain();
+          gain.gain.value = 0.0001;
+          osc.connect(gain);
+          gain.connect(state.audioCtx.destination);
+          osc.start();
+          osc.stop(state.audioCtx.currentTime + 0.05);
+        } catch(e) {}
+      }, 15000);
+    }
+
+    function stopKeepAlive() {
+      if (state.keepAliveInterval) {
+        clearInterval(state.keepAliveInterval);
+        state.keepAliveInterval = null;
+      }
+    }
+
+    function ensureKeepAlive() {
+      if (state.alarmEnabled || state.nightMode) {
+        initAudioCtx();
+        startKeepAlive();
+      } else {
+        stopKeepAlive();
+      }
+    }
+
+    // ==================== MELODIES (Web Audio) ====================
+    function playMelody(type, duration = 8) {
+      const ctx = initAudioCtx();
+      if (!ctx) return;
+
+      // Resume for iOS
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const now = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = 0.12;
+      masterGain.connect(ctx.destination);
+
+      switch(type) {
+        case 'field': {
+          // Bright, airy arpeggios – "running through a sunny field"
+          const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 659.25, 783.99, 1046.50, 1318.51, 1046.50, 783.99, 659.25, 523.25, 659.25];
+          const noteDur = 0.22;
+          notes.forEach((freq, i) => {
+            const t = now + i * noteDur;
+            if (t > now + duration) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.8, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + noteDur * 0.9);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(t);
+            osc.stop(t + noteDur);
+          });
+          // Add a soft high shimmer
+          const shimmer = ctx.createOscillator();
+          const shGain = ctx.createGain();
+          shimmer.type = 'sine';
+          shimmer.frequency.value = 2093;
+          shGain.gain.setValueAtTime(0.03, now);
+          shGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          shimmer.connect(shGain);
+          shGain.connect(masterGain);
+          shimmer.start(now);
+          shimmer.stop(now + duration);
+          break;
+        }
+        case 'gentle': {
+          // Soft, slow, warm tones
+          const notes = [392.00, 440.00, 493.88, 523.25, 493.88, 440.00, 392.00, 349.23, 392.00, 440.00, 493.88, 523.25];
+          const noteDur = 0.6;
+          notes.forEach((freq, i) => {
+            const t = now + i * noteDur;
+            if (t > now + duration) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.5, t + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + noteDur * 0.8);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(t);
+            osc.stop(t + noteDur);
+          });
+          break;
+        }
+        case 'classic': {
+          // Classic alarm: alternating tones
+          const baseFreqs = [880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100];
+          const noteDur = 0.35;
+          baseFreqs.forEach((freq, i) => {
+            const t = now + i * noteDur;
+            if (t > now + duration) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + noteDur * 0.7);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(t);
+            osc.stop(t + noteDur);
+          });
+          break;
+        }
+        case 'bass': {
+          // Powerful low siren
+          const baseFreq = 80;
+          for (let i = 0; i < Math.floor(duration / 0.8); i++) {
+            const t = now + i * 0.8;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(baseFreq, t);
+            osc.frequency.linearRampToValueAtTime(baseFreq * 2.5, t + 0.4);
+            osc.frequency.linearRampToValueAtTime(baseFreq, t + 0.8);
+            gain.gain.setValueAtTime(0.3, t);
+            gain.gain.linearRampToValueAtTime(0.15, t + 0.8);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(t);
+            osc.stop(t + 0.8);
+          }
+          // Add sub-bass
+          const sub = ctx.createOscillator();
+          const subGain = ctx.createGain();
+          sub.type = 'sine';
+          sub.frequency.value = 50;
+          subGain.gain.setValueAtTime(0.2, now);
+          subGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+          sub.connect(subGain);
+          subGain.connect(masterGain);
+          sub.start(now);
+          sub.stop(now + duration);
+          break;
+        }
+      }
+    }
+
+    // ==================== HAPTIC FEEDBACK ====================
+    function haptic(type = 'medium') {
+      if (tg?.HapticFeedback) {
+        try {
+          if (type === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
+          else if (type === 'light') tg.HapticFeedback.impactOccurred('light');
+          else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+          else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+          else tg.HapticFeedback.impactOccurred('medium');
+        } catch(e) {}
+      }
+    }
+
+    // ==================== TOAST ====================
+    let toastTimeout;
+    function showToast(msg, duration = 2500) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toastEl.classList.remove('show'), duration);
+    }
+
+    // ==================== UI: MELODY & TASK SELECTION ====================
+    melodyGrid.addEventListener('click', (e) => {
+      const el = e.target.closest('.choice');
+      if (!el) return;
+      const melody = el.dataset.melody;
+      if (!melody) return;
+      state.melody = melody;
+      melodyGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      haptic('light');
+      // Preview melody
+      playMelody(melody, 2.5);
+    });
+
+    taskGrid.addEventListener('click', (e) => {
+      const el = e.target.closest('.choice');
+      if (!el) return;
+      const task = el.dataset.task;
+      if (!task) return;
+      state.task = task;
+      taskGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      haptic('light');
+    });
+
+    // ==================== ALARM TOGGLE ====================
+    toggleAlarmBtn.addEventListener('click', async () => {
+      initAudioCtx();
+      haptic('medium');
+
+      if (state.alarmEnabled) {
+        // Disable
+        state.alarmEnabled = false;
+        state.lastTriggeredMinute = null;
+        toggleAlarmBtn.textContent = 'Включить будильник';
+        toggleAlarmBtn.classList.remove('btn-danger');
+        toggleAlarmBtn.classList.add('btn-primary');
+        alarmBadge.classList.add('hidden');
+        ensureKeepAlive();
+        showToast('Будильник выключен');
+      } else {
+        // Enable
+        state.alarmHour = parseInt(hourSelect.value);
+        state.alarmMinute = parseInt(minuteSelect.value);
+        state.alarmEnabled = true;
+        state.lastTriggeredMinute = null;
+        toggleAlarmBtn.textContent = 'Выключить будильник';
+        toggleAlarmBtn.classList.remove('btn-primary');
+        toggleAlarmBtn.classList.add('btn-danger');
+        alarmBadge.classList.remove('hidden');
+        alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
+        ensureKeepAlive();
+
+        // Request camera if motion task selected
+        if (state.task === 'pushups' || state.task === 'squats') {
+          await requestCamera();
+        }
+
+        showToast(`Будильник включён на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`);
+      }
+    });
+
+    // ==================== TEST BUTTON ====================
+    testBtn.addEventListener('click', async () => {
+      initAudioCtx();
+      haptic('medium');
+      if (state.task === 'pushups' || state.task === 'squats') {
+        await requestCamera();
+      }
+      triggerAlarm(true);
+    });
+
+    // ==================== NIGHT MODE ====================
+    nightModeBtn.addEventListener('click', async () => {
+      initAudioCtx();
+      haptic('medium');
+
+      if (state.nightMode) {
+        // Disable night mode
+        state.nightMode = false;
+        nightModeBtn.textContent = '🌙 Ночной режим';
+        nightModeBtn.classList.remove('btn-primary');
+        nightModeBtn.classList.add('btn-secondary');
+        clockDisplay.classList.remove('dim');
+        releaseWakeLock();
+        ensureKeepAlive();
+        showToast('Ночной режим выключен');
+      } else {
+        // Enable night mode
+        state.nightMode = true;
+        nightModeBtn.textContent = '☀️ Дневной режим';
+        nightModeBtn.classList.remove('btn-secondary');
+        nightModeBtn.classList.add('btn-primary');
+        clockDisplay.classList.add('dim');
+        await requestWakeLock();
+        ensureKeepAlive();
+        showToast('Ночной режим включён. Экран не погаснет.');
+      }
+    });
+
+    // ==================== WAKE LOCK ====================
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          state.wakeLock = await navigator.wakeLock.request('screen');
+          state.wakeLock.addEventListener('release', () => {
+            console.log('Wake Lock released');
+          });
+        } catch(e) {
+          console.warn('Wake Lock error:', e);
+          showToast('Не удалось включить WakeLock. Попробуйте ещё раз.');
+        }
+      } else {
+        showToast('WakeLock не поддерживается на этом устройстве');
+      }
+    }
+
+    function releaseWakeLock() {
+      if (state.wakeLock) {
+        state.wakeLock.release();
+        state.wakeLock = null;
+      }
+    }
+
+    // ==================== CAMERA & MOTION DETECTION ====================
+    async function requestCamera() {
+      if (state.stream) return true;
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 320, height: 240 },
+          audio: false
+        });
+        return true;
+      } catch(e) {
+        console.warn('Camera error:', e);
+        showToast('Камера недоступна. Будет использовано задание с примерами.');
+        state.task = 'math';
+        taskGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
+        document.querySelector('[data-task="math"]')?.classList.add('active');
+        return false;
+      }
+    }
+
+    function stopCamera() {
+      if (state.stream) {
+        state.stream.getTracks().forEach(t => t.stop());
+        state.stream = null;
+      }
+      if (state.motionDetectionInterval) {
+        clearInterval(state.motionDetectionInterval);
+        state.motionDetectionInterval = null;
+      }
+    }
+
+    // Simple motion detection using canvas difference
+    function startMotionDetection(videoEl, canvasEl, onRep) {
+      const ctx2d = canvasEl.getContext('2d', { willReadFrequently: true });
+      let prevFrame = null;
+      let motionCooldown = false;
+
+      state.motionDetectionInterval = setInterval(() => {
+        if (videoEl.readyState < 2) return;
+        canvasEl.width = 80;
+        canvasEl.height = 60;
+        ctx2d.drawImage(videoEl, 0, 0, 80, 60);
+        const frame = ctx2d.getImageData(0, 0, 80, 60);
+        const data = frame.data;
+
+        if (prevFrame && !motionCooldown) {
+          let diff = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            diff += Math.abs(data[i] - prevFrame[i]);
+          }
+          const avgDiff = diff / (data.length / 4);
+
+          if (avgDiff > 18) {
+            motionCooldown = true;
+            onRep();
+            setTimeout(() => { motionCooldown = false; }, 600);
+          }
+        }
+
+        prevFrame = new Uint8ClampedArray(data);
+      }, 150);
+    }
+
+    // ==================== MATH TASKS ====================
+    function generateMathProblems(count = 3) {
+      const problems = [];
+      for (let i = 0; i < count; i++) {
+        const a = Math.floor(Math.random() * 20) + 1;
+        const b = Math.floor(Math.random() * 20) + 1;
+        const op = Math.random() > 0.5 ? '+' : '-';
+        let answer, text;
+        if (op === '+') {
+          answer = a + b;
+          text = `${a} + ${b}`;
+        } else {
+          const big = Math.max(a, b);
+          const small = Math.min(a, b);
+          answer = big - small;
+          text = `${big} − ${small}`;
+        }
+        problems.push({ text, answer });
+      }
+      return problems;
+    }
+
+    // ==================== TRIGGER ALARM ====================
+    async function triggerAlarm(isTest = false) {
+      if (state.ringing) return;
+      state.ringing = true;
+      state.lastMotionTime = 0;
+
+      // Force audio resume
+      initAudioCtx();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        try { await state.audioCtx.resume(); } catch(e) {}
+      }
+
+      // Play melody
+      playMelody(state.melody, 30);
+
+      // Haptic every second
+      if (state.hapticInterval) clearInterval(state.hapticInterval);
+      state.hapticInterval = setInterval(() => {
+        haptic('heavy');
+        // Re-play melody if needed (long alarm)
+      }, 1000);
+
+      // Show overlay
+      ringOverlay.classList.add('active');
+      stopAlarmBtn.classList.add('hidden');
+
+      // Build task UI
+      taskArea.innerHTML = '';
+      state.repCount = 0;
+      state.mathProblems = [];
+      state.mathIndex = 0;
+      state.mathCorrect = 0;
+
+      if (isTest) {
+        // In test mode, allow stopping immediately
+        stopAlarmBtn.classList.remove('hidden');
+        const testMsg = document.createElement('div');
+        testMsg.style.cssText = 'color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:16px;';
+        testMsg.textContent = 'Тестовый режим – задание не требуется';
+        taskArea.appendChild(testMsg);
+      } else {
+        // Real alarm – task required
+        if (state.task === 'pushups' || state.task === 'squats') {
+          const camOk = await setupCameraTask();
+          if (!camOk) {
+            // Fallback to math
+            setupMathTask();
+          }
+        } else {
+          setupMathTask();
+        }
+      }
+
+      // If night mode, release wake lock briefly? No – keep it.
+      // Ensure wake lock stays active
+    }
+
+    async function setupCameraTask() {
+      const camOk = await requestCamera();
+      if (!camOk) return false;
+
+      const label = state.task === 'pushups' ? 'отжиманий' : 'приседаний';
+      const total = 10;
+
+      taskArea.innerHTML = `
+        <div class="task-title">Сделайте ${total} ${label}</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / ${total}</small></div>
+        <div class="video-preview" id="videoPreview"></div>
+        <div style="color:rgba(255,255,255,0.4);font-size:13px;">Двигайтесь в кадре</div>
+      `;
+
+      const preview = document.getElementById('videoPreview');
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = state.stream;
+      video.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1);';
+      preview.appendChild(video);
+
+      const canvas = document.createElement('canvas');
+      canvas.style.display = 'none';
+      document.body.appendChild(canvas);
+
+      const repCounter = document.getElementById('repCounter');
+
+      startMotionDetection(video, canvas, () => {
+        if (state.repCount < total) {
+          state.repCount++;
+          repCounter.textContent = state.repCount;
+          haptic('medium');
+          if (state.repCount >= total) {
+            // Task complete!
+            completeTask();
+          }
+        }
+      });
+
+      return true;
+    }
+
+    function setupMathTask() {
+      state.mathProblems = generateMathProblems(3);
+      state.mathIndex = 0;
+      state.mathCorrect = 0;
+
+      const renderProblem = () => {
+        if (state.mathIndex >= state.mathProblems.length) {
+          completeTask();
+          return;
+        }
+        const p = state.mathProblems[state.mathIndex];
+        taskArea.innerHTML = `
+          <div class="task-title">Решите пример (${state.mathIndex + 1} из ${state.mathProblems.length})</div>
+          <div class="math-problem">${p.text} = ?</div>
+          <input type="number" class="math-input" id="mathInput" inputmode="numeric" placeholder="?" autofocus>
+          <button class="btn btn-primary btn-sm" id="mathSubmitBtn" style="margin-top:8px;">Проверить</button>
+        `;
+
+        const input = document.getElementById('mathInput');
+        const submitBtn = document.getElementById('mathSubmitBtn');
+
+        const checkAnswer = () => {
+          const val = parseInt(input.value);
+          if (isNaN(val)) {
+            showToast('Введите число');
+            haptic('error');
+            return;
+          }
+          if (val === p.answer) {
+            state.mathCorrect++;
+            haptic('success');
+            state.mathIndex++;
+            input.value = '';
+            renderProblem();
+          } else {
+            haptic('error');
+            input.value = '';
+            input.style.borderColor = '#f55';
+            setTimeout(() => { input.style.borderColor = 'rgba(255,255,255,0.2)'; }, 500);
+            showToast('Неверно, попробуйте ещё раз');
+          }
+        };
+
+        submitBtn.addEventListener('click', checkAnswer);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') checkAnswer();
+        });
+
+        // Focus after a tick
+        setTimeout(() => input.focus(), 100);
+      };
+
+      renderProblem();
+    }
+
+    function completeTask() {
+      showToast('Задание выполнено! Будильник отключён.', 3000);
+      haptic('success');
+      stopAlarm();
+    }
+
+    // ==================== STOP ALARM ====================
+    function stopAlarm() {
+      if (!state.ringing) return;
+      state.ringing = false;
+
+      // Stop haptic
+      if (state.hapticInterval) {
+        clearInterval(state.hapticInterval);
+        state.hapticInterval = null;
+      }
+
+      // Stop camera
+      stopCamera();
+
+      // Hide overlay
+      ringOverlay.classList.remove('active');
+
+      // Clear task area
+      taskArea.innerHTML = '';
+
+      // Remove hidden canvas
+      document.querySelectorAll('canvas').forEach(c => {
+        if (c.style.display === 'none') c.remove();
+      });
+
+      // Disable the alarm (it already triggered)
+      state.alarmEnabled = false;
+      state.lastTriggeredMinute = null;
+      toggleAlarmBtn.textContent = 'Включить будильник';
+      toggleAlarmBtn.classList.remove('btn-danger');
+      toggleAlarmBtn.classList.add('btn-primary');
+      alarmBadge.classList.add('hidden');
+
+      // Keep night mode alive if active
+      ensureKeepAlive();
+
+      // Stop any lingering audio after short delay
+      setTimeout(() => {
+        // Audio will naturally finish its scheduled notes
+      }, 100);
+    }
+
+    stopAlarmBtn.addEventListener('click', () => {
+      stopAlarm();
+    });
+
+    // ==================== URL PARAM ?ring=1 ====================
+    if (new URLSearchParams(window.location.search).get('ring') === '1') {
+      setTimeout(async () => {
+        initAudioCtx();
+        await triggerAlarm(true);
+      }, 500);
+    }
+
+    // ==================== VISIBILITY & UNLOAD ====================
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        // Re-acquire wake lock if night mode
+        if (state.nightMode && !state.wakeLock) {
+          requestWakeLock();
+        }
+        // Resume audio context
+        if (state.audioCtx && state.audioCtx.state === 'suspended') {
+          state.audioCtx.resume();
+        }
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      stopKeepAlive();
+      if (state.hapticInterval) clearInterval(state.hapticInterval);
+      stopCamera();
+      releaseWakeLock();
+    });
+
+    // Re-acquire wake lock on user interaction
+    document.addEventListener('click', () => {
+      if (state.nightMode && !state.wakeLock) {
+        requestWakeLock();
+      }
+      initAudioCtx();
+    }, { once: true });
+
+    // ==================== INITIAL KEEP-ALIVE CHECK ====================
+    // Do nothing – keep-alive starts when alarm/night mode enabled
+
+    console.log('Smart Alarm loaded');
+  </script>
+</body>
+</html>
