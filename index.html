@@ -139,3 +139,192 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+<body>
+  <div class="clock" id="clock">00:00:00</div>
+
+  <div class="box">
+    <div>Время подъёма:</div>
+    <input type="time" id="alarmTime" value="07:30">
+    
+    <div style="margin-top:12px;">Мелодия:</div>
+    <select id="soundType">
+      <option value="soft">🎵 Аккуратная (лёгкий подъём)</option>
+      <option value="normal">🔔 Обычная мелодия</option>
+      <option value="bass">🔊 Звонкий бас (тяжёлый подъём)</option>
+    </select>
+
+    <div style="margin-top:12px;">Задание для отключения:</div>
+    <select id="taskType">
+      <option value="pushups">💪 10 отжиманий</option>
+      <option value="squats">🦵 10 приседаний</option>
+      <option value="math">🧠 3 математических примера</option>
+    </select>
+
+    <button class="btn-main" onclick="setAlarm()">✅ Включить будильник</button>
+    <button class="btn-night" onclick="startNightMode()">🌙 Ночной режим (экран не погаснет)</button>
+    <div id="statusText" style="margin-top:10px; color:#30d158; font-size:14px;">Будильник выключен</div>
+  </div>
+
+  <button class="btn-test" onclick="triggerAlarm()">🚨 Тест звонка сейчас</button>
+
+  <div id="nightScreen">
+    <div id="nightClock" style="font-size:64px; font-weight:bold;">00:00</div>
+    <div style="margin-top:15px; font-size:14px;">Не закрывайте экран, чтобы сработал звук</div>
+    <button onclick="exitNightMode()" style="width:auto; background:#111; color:#666; border:1px solid #222; margin-top:30px;">Выйти из ночного режима</button>
+  </div>
+
+  <div id="alarmScreen">
+    <h2 style="color:#ff453a; margin:0;">🚨 ПОДЪЁМ! 🚨</h2>
+    <p id="taskTitle" style="font-size:18px; margin:10px 0;"></p>
+    
+    <div id="cameraZone" style="display:none;">
+      <video id="video" autoplay playsinline></video>
+      <div id="counterText" style="font-size:36px; font-weight:bold;">0 / 10</div>
+    </div>
+
+    <div id="mathZone" style="display:none;">
+      <div id="mathProblem" style="font-size:32px; font-weight:bold; margin:10px 0;">12 + 15 = ?</div>
+      <input type="number" id="mathAnswer" class="math-input" placeholder="Ответ">
+      <button class="btn-main" onclick="checkMath()" style="width:160px;">Ответить</button>
+      <div id="mathProgress" style="margin-top:8px; color:#aaa;">Решено: 0 из 3</div>
+    </div>
+  </div>
+<script>
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if (tg) { tg.expand(); tg.ready(); }
+
+let targetTime = null, isRinging = false, audioCtx = null, soundInterval = null, wakeLock = null;
+
+setInterval(() => {
+  const now = new Date();
+  const str = now.toTimeString().slice(0, 8);
+  const shortStr = now.toTimeString().slice(0, 5);
+  document.getElementById('clock').innerText = str;
+  document.getElementById('nightClock').innerText = shortStr;
+  if (targetTime === shortStr && now.getSeconds() === 0 && !isRinging) triggerAlarm();
+}, 1000);
+
+function setAlarm() {
+  initAudio();
+  targetTime = document.getElementById('alarmTime').value;
+  document.getElementById('statusText').innerText = 'Установлен на ' + targetTime;
+}
+
+async function startNightMode() {
+  initAudio();
+  if (!targetTime) setAlarm();
+  document.getElementById('nightScreen').style.display = 'flex';
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+
+function exitNightMode() {
+  document.getElementById('nightScreen').style.display = 'none';
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playMelody() {
+  initAudio();
+  const type = document.getElementById('soundType').value;
+  soundInterval = setInterval(() => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    if (type === 'soft') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.exponentialRampToValueAtTime(554, now + 0.4);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.start(now); osc.stop(now + 0.5);
+    } else if (type === 'normal') {
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    } else {
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(110, now); osc.frequency.linearRampToValueAtTime(950, now + 0.35);
+      gain.gain.setValueAtTime(0.9, now); osc.start(now); osc.stop(now + 0.4);
+    }
+  }, 600);
+}
+
+function triggerAlarm() {
+  if (isRinging) return;
+  isRinging = true; exitNightMode(); playMelody();
+  document.getElementById('alarmScreen').style.display = 'flex';
+  const task = document.getElementById('taskType').value;
+  if (task === 'math') {
+    document.getElementById('taskTitle').innerText = 'Реши 3 примера, чтобы выключить';
+    document.getElementById('mathZone').style.display = 'block';
+    document.getElementById('cameraZone').style.display = 'none';
+    startMathTask();
+  } else {
+    const name = task === 'pushups' ? 'отжиманий' : 'приседаний';
+    document.getElementById('taskTitle').innerText = 'Сделай 10 ' + name + ' перед камерой!';
+    document.getElementById('cameraZone').style.display = 'block';
+    document.getElementById('mathZone').style.display = 'none';
+    startCameraTask();
+  }
+}
+
+function stopAlarm() {
+  isRinging = false; clearInterval(soundInterval);
+  document.getElementById('alarmScreen').style.display = 'none';
+  document.getElementById('statusText').innerText = 'Доброе утро! Будильник выключен';
+  if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+}
+
+let mathCount = 0, correctAns = 0;
+function startMathTask() { mathCount = 0; document.getElementById('mathProgress').innerText = 'Решено: 0 из 3'; nextMathProblem(); }
+function nextMathProblem() {
+  const a = Math.floor(Math.random() * 25) + 12, b = Math.floor(Math.random() * 25) + 11;
+  correctAns = a + b; document.getElementById('mathProblem').innerText = a + ' + ' + b + ' = ?';
+  document.getElementById('mathAnswer').value = '';
+}
+function checkMath() {
+  if (parseInt(document.getElementById('mathAnswer').value) === correctAns) {
+    mathCount++; document.getElementById('mathProgress').innerText = 'Решено: ' + mathCount + ' из 3';
+    if (mathCount >= 3) stopAlarm(); else nextMathProblem();
+  } else { document.getElementById('mathAnswer').value = ''; }
+}
+
+let videoStream = null, reps = 0, state = 'up';
+async function startCameraTask() {
+  reps = 0; document.getElementById('counterText').innerText = '0 / 10';
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('video'); video.srcObject = videoStream;
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+    canvas.width = 64; canvas.height = 48;
+    const detect = setInterval(() => {
+      if (!isRinging) { clearInterval(detect); return; }
+      ctx.drawImage(video, 0, 0, 64, 48);
+      const data = ctx.getImageData(0, 0, 64, 48).data;
+      let topMass = 0, bottomMass = 0;
+      for (let y = 0; y < 48; y++) {
+        for (let x = 0; x < 64; x++) {
+          const i = (y * 64 + x) * 4, bright = (data[i] + data[i+1] + data[i+2]) / 3;
+          if (y < 24) topMass += bright; else bottomMass += bright;
+        }
+      }
+      const ratio = bottomMass / (topMass + 1);
+      if (ratio > 1.15 && state === 'up') state = 'down';
+      if (ratio < 0.98 && state === 'down') {
+        state = 'up'; reps++; document.getElementById('counterText').innerText = reps + ' / 10';
+        if (reps >= 10) { clearInterval(detect); stopAlarm(); }
+      }
+    }, 150);
+  } catch (e) {
+    document.getElementById('taskTitle').innerText = 'Нет доступа к камере. Реши примеры!';
+    document.getElementById('cameraZone').style.display = 'none';
+    document.getElementById('mathZone').style.display = 'block';
+    startMathTask();
+  }
+}
+
+if (window.location.search.includes('ring=1')) window.addEventListener('load', () => setTimeout(triggerAlarm, 500));
+</script>
+</body>
+</html>
