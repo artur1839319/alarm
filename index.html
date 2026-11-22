@@ -2,211 +2,1402 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Smart Alarm</title>
-<script src="https://telegram.org"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Умный будильник</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  body { font-family: -apple-system, sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; margin: 0; }
-  .clock { font-size: 48px; font-weight: bold; margin: 15px 0; }
-  .box { background: #1c1c1e; padding: 15px; border-radius: 14px; margin-bottom: 15px; }
-  select, input[type="time"] { width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: none; background: #2c2c2e; color: #fff; margin-top: 8px; box-sizing: border-box; }
-  button { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 12px; border: none; margin-top: 10px; cursor: pointer; }
-  .btn-main { background: #0a84ff; color: #fff; }
-  .btn-night { background: #2c2c2e; color: #fff; }
-  .btn-test { background: #ff453a; color: #fff; }
-  #alarmScreen, #nightScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
-  #nightScreen { background: #000; color: #444; z-index: 998; }
-  #alarmScreen { background: #1c0000; }
-  video { width: 240px; height: 180px; border-radius: 12px; background: #000; transform: scaleX(-1); margin: 10px 0; }
-  .math-input { width: 140px; font-size: 24px; text-align: center; padding: 10px; border-radius: 10px; border: none; margin: 10px 0; }
+  :root {
+    --bg-1: #050510;
+    --bg-2: #0a0a1f;
+    --bg-3: #1a0a2e;
+    --accent-cyan: #00d4ff;
+    --accent-purple: #a855f7;
+    --accent-pink: #ff006e;
+    --accent-green: #00ff88;
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.55);
+    --text-faint: rgba(255, 255, 255, 0.3);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-bg-strong: rgba(255, 255, 255, 0.1);
+    --radius: 22px;
+    --radius-sm: 14px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(ellipse at top, var(--bg-3) 0%, var(--bg-2) 40%, var(--bg-1) 100%);
+    color: var(--text);
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* Фоновые световые пятна */
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::before {
+    width: 400px; height: 400px;
+    background: var(--accent-purple);
+    top: -100px; right: -100px;
+    animation: float1 18s ease-in-out infinite;
+  }
+  body::after {
+    width: 350px; height: 350px;
+    background: var(--accent-cyan);
+    bottom: -80px; left: -80px;
+    animation: float2 22s ease-in-out infinite;
+  }
+  @keyframes float1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-40px, 60px) scale(1.15); }
+  }
+  @keyframes float2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(50px, -40px) scale(1.1); }
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ============ СТЕКЛЯННЫЕ КОНТЕЙНЕРЫ ============ */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* ============ ГЛАВНЫЙ ЭКРАН ============ */
+  .main-wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-bottom: 20px;
+  }
+
+  .clock-card {
+    padding: 28px 20px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .clock-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.08), rgba(168, 85, 247, 0.08));
+    pointer-events: none;
+  }
+
+  .current-time {
+    font-size: clamp(64px, 18vw, 96px);
+    font-weight: 200;
+    letter-spacing: -3px;
+    line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #a0a0c0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+    font-variant-numeric: tabular-nums;
+    position: relative;
+    z-index: 1;
+  }
+  .current-date {
+    font-size: 15px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-transform: capitalize;
+    position: relative;
+    z-index: 1;
+  }
+
+  .alarm-target {
+    margin-top: 16px;
+    padding: 10px 16px;
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--accent-cyan);
+    display: inline-block;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+  }
+  .alarm-target.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: rgba(0, 255, 136, 0.3);
+    color: var(--accent-green);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 12px;
+    padding-left: 4px;
+  }
+
+  /* Время */
+  .time-section {
+    padding: 20px;
+  }
+  .time-input-wrap {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .time-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--text);
+    text-align: center;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    transition: all 0.3s ease;
+    -webkit-appearance: none;
+  }
+  .time-input:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+  }
+  .time-input::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(0.8);
+    cursor: pointer;
+  }
+
+  .btn {
+    padding: 16px 20px;
+    border-radius: 14px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    letter-spacing: 0.2px;
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    box-shadow: 0 8px 24px rgba(0, 212, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    width: 100%;
+    margin-top: 14px;
+  }
+  .btn-primary:active {
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+  }
+  .btn-primary.armed {
+    background: linear-gradient(135deg, #ff3366, #ff006e);
+    box-shadow: 0 8px 24px rgba(255, 0, 110, 0.35);
+  }
+
+  .btn-secondary {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+  }
+  .btn-secondary:active {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Карточки выбора */
+  .cards-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .card {
+    padding: 16px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-sm);
+    position: relative;
+  }
+  .card:active { transform: scale(0.96); }
+  .card.selected {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.18), rgba(168, 85, 247, 0.18));
+    border-color: rgba(0, 212, 255, 0.5);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .card-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+    display: block;
+    filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.4));
+  }
+  .card.selected .card-icon {
+    animation: iconPulse 2s ease-in-out infinite;
+  }
+  @keyframes iconPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .card-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.3;
+  }
+
+  .actions-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* ============ ЭКРАН ТРЕВОГИ ============ */
+  #alarm-screen {
+    background: radial-gradient(ellipse at center, #1a0033 0%, #000 70%);
+    padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #alarm-screen.active {
+    animation: alarmBg 3s ease-in-out infinite;
+  }
+  @keyframes alarmBg {
+    0%, 100% { background: radial-gradient(ellipse at center, #1a0033 0%, #000 70%); }
+    50% { background: radial-gradient(ellipse at center, #330033 0%, #000 70%); }
+  }
+
+  .alarm-content {
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .alarm-clock {
+    font-size: clamp(72px, 22vw, 120px);
+    font-weight: 200;
+    letter-spacing: -4px;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    text-shadow:
+      0 0 20px var(--accent-pink),
+      0 0 40px var(--accent-pink),
+      0 0 80px var(--accent-purple);
+    animation: clockPulse 1s ease-in-out infinite;
+  }
+  @keyframes clockPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.04); opacity: 0.9; }
+  }
+
+  .alarm-task-title {
+    font-size: 18px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .alarm-counter {
+    font-size: 56px;
+    font-weight: 300;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 20px var(--accent-cyan);
+    font-variant-numeric: tabular-nums;
+  }
+  .alarm-counter .total { color: var(--text-dim); font-size: 32px; }
+
+  .camera-preview {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--accent-cyan);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+    transform: scaleX(-1);
+    background: #000;
+  }
+
+  .motion-bar {
+    width: 100%;
+    max-width: 300px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .motion-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+    border-radius: 4px;
+    transition: width 0.1s ease;
+    box-shadow: 0 0 10px var(--accent-cyan);
+  }
+  .motion-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .math-problem {
+    font-size: 48px;
+    font-weight: 300;
+    color: #fff;
+    padding: 20px 30px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .math-input {
+    font-size: 32px;
+    padding: 14px 20px;
+    width: 140px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 14px;
+    color: #fff;
+    font-family: inherit;
+    font-weight: 300;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+    -webkit-appearance: none;
+  }
+  .math-input:focus {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+  }
+  .math-check-btn {
+    padding: 14px 28px;
+    font-size: 16px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .math-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .math-progress {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .stop-btn {
+    padding: 20px 40px;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 600;
+    cursor: not-allowed;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 300px;
+  }
+  .stop-btn.ready {
+    background: linear-gradient(135deg, var(--accent-green), #00cc66);
+    border-color: var(--accent-green);
+    color: #000;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
+    animation: readyPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes readyPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
+  /* ============ НОЧНОЙ РЕЖИМ ============ */
+  #night-screen {
+    background: #000;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .night-time {
+    font-size: clamp(80px, 26vw, 140px);
+    font-weight: 100;
+    letter-spacing: -4px;
+    color: rgba(255, 255, 255, 0.18);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.05);
+  }
+  .night-date {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.15);
+    margin-top: 8px;
+    text-transform: capitalize;
+  }
+  .night-exit {
+    position: absolute;
+    bottom: calc(var(--safe-bottom) + 30px);
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .night-exit:active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .night-wakelock {
+    position: absolute;
+    top: calc(var(--safe-top) + 20px);
+    right: 20px;
+    font-size: 11px;
+    color: rgba(0, 255, 136, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .night-wakelock::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ============ СКРЫТЫЕ ЭЛЕМЕНТЫ ============ */
+  #hidden-video {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #motion-canvas {
+    display: none;
+  }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: fixed;
+    top: calc(var(--safe-top) + 20px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    color: #fff;
+    font-size: 14px;
+    z-index: 100;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body>
-  <div class="clock" id="clock">00:00:00</div>
 
-  <div class="box">
-    <div>Время подъёма:</div>
-    <input type="time" id="alarmTime" value="07:30">
-    
-    <div style="margin-top:12px;">Мелодия:</div>
-    <select id="soundType">
-      <option value="soft">🎵 Аккуратная (лёгкий подъём)</option>
-      <option value="normal">🔔 Обычная мелодия</option>
-      <option value="bass">🔊 Звонкий бас (тяжёлый подъём)</option>
-    </select>
+<!-- ====== ГЛАВНЫЙ ЭКРАН ====== -->
+<div id="main-screen" class="screen active">
+  <div class="main-wrap">
 
-    <div style="margin-top:12px;">Задание для отключения:</div>
-    <select id="taskType">
-      <option value="pushups">💪 10 отжиманий</option>
-      <option value="squats">🦵 10 приседаний</option>
-      <option value="math">🧠 3 математических примера</option>
-    </select>
-
-    <button class="btn-main" onclick="setAlarm()">✅ Включить будильник</button>
-    <button class="btn-night" onclick="startNightMode()">🌙 Ночной режим (экран не погаснет)</button>
-    <div id="statusText" style="margin-top:10px; color:#30d158; font-size:14px;">Будильник выключен</div>
-  </div>
-
-  <button class="btn-test" onclick="triggerAlarm()">🚨 Тест звонка сейчас</button>
-
-  <div id="nightScreen">
-    <div id="nightClock" style="font-size:64px; font-weight:bold;">00:00</div>
-    <div style="margin-top:15px; font-size:14px;">Не закрывайте экран, чтобы сработал звук</div>
-    <button onclick="exitNightMode()" style="width:auto; background:#111; color:#666; border:1px solid #222; margin-top:30px;">Выйти из ночного режима</button>
-  </div>
-
-  <div id="alarmScreen">
-    <h2 style="color:#ff453a; margin:0;">🚨 ПОДЪЁМ! 🚨</h2>
-    <p id="taskTitle" style="font-size:18px; margin:10px 0;"></p>
-    
-    <div id="cameraZone" style="display:none;">
-      <video id="video" autoplay playsinline></video>
-      <div id="counterText" style="font-size:36px; font-weight:bold;">0 / 10</div>
+    <div class="clock-card glass">
+      <div class="current-time" id="current-time">00:00</div>
+      <div class="current-date" id="current-date">—</div>
+      <div class="alarm-target" id="alarm-target">Будильник не установлен</div>
     </div>
 
-    <div id="mathZone" style="display:none;">
-      <div id="mathProblem" style="font-size:32px; font-weight:bold; margin:10px 0;">12 + 15 = ?</div>
-      <input type="number" id="mathAnswer" class="math-input" placeholder="Ответ">
-      <button class="btn-main" onclick="checkMath()" style="width:160px;">Ответить</button>
-      <div id="mathProgress" style="margin-top:8px; color:#aaa;">Решено: 0 из 3</div>
+    <div class="time-section glass">
+      <div class="section-title">Время подъёма</div>
+      <div class="time-input-wrap">
+        <input type="time" id="alarm-time" class="time-input" value="07:00">
+      </div>
+      <button class="btn btn-primary" id="set-alarm">⏰ Включить будильник</button>
     </div>
+
+    <div>
+      <div class="section-title">Мелодия</div>
+      <div class="cards-row" id="melody-cards">
+        <div class="card" data-melody="gentle">
+          <span class="card-icon">🌙</span>
+          <div class="card-title">Аккуратная</div>
+          <div class="card-desc">мягкое арпеджио</div>
+        </div>
+        <div class="card selected" data-melody="normal">
+          <span class="card-icon">🔔</span>
+          <div class="card-title">Обычная</div>
+          <div class="card-desc">классический звонок</div>
+        </div>
+        <div class="card" data-melody="heavy">
+          <span class="card-icon">🚨</span>
+          <div class="card-title">Звонкий бас</div>
+          <div class="card-desc">мощная сирена</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Задание для отключения</div>
+      <div class="cards-row" id="task-cards">
+        <div class="card selected" data-task="pushups">
+          <span class="card-icon">💪</span>
+          <div class="card-title">Отжимания</div>
+          <div class="card-desc">10 раз по камере</div>
+        </div>
+        <div class="card" data-task="squats">
+          <span class="card-icon">🏋️</span>
+          <div class="card-title">Приседания</div>
+          <div class="card-desc">10 раз по камере</div>
+        </div>
+        <div class="card" data-task="math">
+          <span class="card-icon">🧮</span>
+          <div class="card-title">Примеры</div>
+          <div class="card-desc">3 в уме</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn btn-secondary" id="test-alarm">🔊 Тест звонка</button>
+      <button class="btn btn-secondary" id="night-mode">🌙 Ночной режим</button>
+    </div>
+
   </div>
+</div>
+
+<!-- ====== ЭКРАН ТРЕВОГИ ====== -->
+<div id="alarm-screen" class="screen">
+  <div class="alarm-content">
+    <div class="alarm-clock" id="alarm-clock">00:00</div>
+    <div class="alarm-task-title" id="alarm-task-title">Выполните задание</div>
+
+    <!-- Для отжиманий/приседаний -->
+    <div id="motion-block" style="display:none; width:100%; align-items:center; flex-direction:column; gap:12px;">
+      <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
+      <div class="alarm-counter"><span id="rep-count">0</span><span class="total">/10</span></div>
+      <div class="motion-bar"><div class="motion-bar-fill" id="motion-bar-fill"></div></div>
+      <div class="motion-label" id="motion-label">Двигайтесь в ритме...</div>
+    </div>
+
+    <!-- Для математики -->
+    <div id="math-block" style="display:none; width:100%; align-items:center; flex-direction:column; gap:14px;">
+      <div class="math-progress" id="math-progress">Пример 1 из 3</div>
+      <div class="math-problem" id="math-problem">12 + 7 = ?</div>
+      <div class="math-row">
+        <input type="number" inputmode="numeric" class="math-input" id="math-input" autocomplete="off">
+        <button class="math-check-btn" id="math-check">OK</button>
+      </div>
+    </div>
+
+    <button class="stop-btn" id="stop-alarm" disabled>Выполните задание</button>
+  </div>
+</div>
+
+<!-- ====== НОЧНОЙ РЕЖИМ ====== -->
+<div id="night-screen" class="screen">
+  <div class="night-wakelock" id="night-wakelock">Экран не гаснет</div>
+  <div class="night-time" id="night-time">00:00</div>
+  <div class="night-date" id="night-date">—</div>
+  <button class="night-exit" id="exit-night">Выйти из ночного режима</button>
+</div>
+
+<!-- Скрытые элементы для камеры -->
+<video id="hidden-video" autoplay playsinline muted></video>
+<canvas id="motion-canvas" width="160" height="120"></canvas>
+
+<div class="toast" id="toast"></div>
+
 <script>
-const tg = window.Telegram ? window.Telegram.WebApp : null;
-if (tg) { tg.expand(); tg.ready(); }
+/* =========================================================
+   УМНЫЙ БУДИЛЬНИК — Telegram Mini App
+   ========================================================= */
 
-let targetTime = null, isRinging = false, audioCtx = null, soundInterval = null, wakeLock = null;
-
-setInterval(() => {
-  const now = new Date();
-  const str = now.toTimeString().slice(0, 8);
-  const shortStr = now.toTimeString().slice(0, 5);
-  document.getElementById('clock').innerText = str;
-  document.getElementById('nightClock').innerText = shortStr;
-  if (targetTime === shortStr && now.getSeconds() === 0 && !isRinging) triggerAlarm();
-}, 1000);
-
-function setAlarm() {
-  initAudio();
-  targetTime = document.getElementById('alarmTime').value;
-  document.getElementById('statusText').innerText = 'Установлен на ' + targetTime;
+// ---------- Telegram WebApp ----------
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  try {
+    tg.ready();
+    tg.expand();
+    if (tg.setHeaderColor) tg.setHeaderColor('#000000');
+    if (tg.setBackgroundColor) tg.setBackgroundColor('#000000');
+    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+  } catch (e) { console.warn('TG init:', e); }
 }
+const haptic = (type = 'light', style) => {
+  if (!tg || !tg.HapticFeedback) return;
+  try {
+    if (type === 'impact') tg.HapticFeedback.impactOccurred(style || 'light');
+    else if (type === 'notification') tg.HapticFeedback.notificationOccurred(style || 'success');
+    else if (type === 'selection') tg.HapticFeedback.selectionChanged();
+  } catch (e) {}
+};
 
-async function startNightMode() {
-  initAudio();
-  if (!targetTime) setAlarm();
-  document.getElementById('nightScreen').style.display = 'flex';
-  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-}
+// ---------- Утилиты ----------
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const showToast = (msg, ms = 2200) => {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), ms);
+};
 
-function exitNightMode() {
-  document.getElementById('nightScreen').style.display = 'none';
-  if (wakeLock) { wakeLock.release(); wakeLock = null; }
-}
+// ---------- Состояние ----------
+const state = {
+  alarmTime: null,      // "HH:MM" или null
+  alarmArmed: false,
+  melody: 'normal',
+  task: 'pushups',
+  nightMode: false,
+  ringing: false,
+  audioCtx: null,
+  melodyNodes: [],
+  melodyInterval: null,
+  wakeLock: null,
+  cameraStream: null,
+  motionPrev: null,
+  motionHistory: [],
+  repCount: 0,
+  motionCooldown: 0,
+  motionPhase: 'idle', // idle | down | up
+  motionDownTime: 0,
+  mathIndex: 0,
+  mathAnswer: 0,
+  motionRAF: null,
+};
 
-function initAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-
-function playMelody() {
-  initAudio();
-  const type = document.getElementById('soundType').value;
-  soundInterval = setInterval(() => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    const now = audioCtx.currentTime;
-    if (type === 'soft') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.exponentialRampToValueAtTime(554, now + 0.4);
-      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-      osc.start(now); osc.stop(now + 0.5);
-    } else if (type === 'normal') {
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(880, now);
-      gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.start(now); osc.stop(now + 0.3);
-    } else {
-      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(110, now); osc.frequency.linearRampToValueAtTime(950, now + 0.35);
-      gain.gain.setValueAtTime(0.9, now); osc.start(now); osc.stop(now + 0.4);
-    }
-  }, 600);
-}
-
-function triggerAlarm() {
-  if (isRinging) return;
-  isRinging = true; exitNightMode(); playMelody();
-  document.getElementById('alarmScreen').style.display = 'flex';
-  const task = document.getElementById('taskType').value;
-  if (task === 'math') {
-    document.getElementById('taskTitle').innerText = 'Реши 3 примера, чтобы выключить';
-    document.getElementById('mathZone').style.display = 'block';
-    document.getElementById('cameraZone').style.display = 'none';
-    startMathTask();
-  } else {
-    const name = task === 'pushups' ? 'отжиманий' : 'приседаний';
-    document.getElementById('taskTitle').innerText = 'Сделай 10 ' + name + ' перед камерой!';
-    document.getElementById('cameraZone').style.display = 'block';
-    document.getElementById('mathZone').style.display = 'none';
-    startCameraTask();
+// Восстановление из localStorage
+try {
+  const saved = JSON.parse(localStorage.getItem('smart-alarm') || '{}');
+  if (saved.melody) state.melody = saved.melody;
+  if (saved.task) state.task = saved.task;
+  if (saved.alarmTime) {
+    state.alarmTime = saved.alarmTime;
+    state.alarmArmed = true;
+    $('alarm-time').value = saved.alarmTime;
   }
+} catch (e) {}
+
+function saveState() {
+  try {
+    localStorage.setItem('smart-alarm', JSON.stringify({
+      melody: state.melody,
+      task: state.task,
+      alarmTime: state.alarmTime,
+    }));
+  } catch (e) {}
+}
+
+// ---------- Часы ----------
+const DAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+function updateClocks() {
+  const d = new Date();
+  const hhmm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const dateStr = `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+
+  $('current-time').textContent = hhmm;
+  $('current-date').textContent = dateStr;
+  $('night-time').textContent = hhmm;
+  $('night-date').textContent = dateStr;
+
+  // Проверка будильника
+  if (state.alarmArmed && state.alarmTime && !state.ringing) {
+    if (state.alarmTime === hhmm && d.getSeconds() === 0) {
+      triggerAlarm();
+    }
+  }
+}
+setInterval(updateClocks, 1000);
+updateClocks();
+
+// ---------- Обновление UI будильника ----------
+function updateAlarmUI() {
+  const target = $('alarm-target');
+  const btn = $('set-alarm');
+  if (state.alarmArmed && state.alarmTime) {
+    target.textContent = `⏰ Будильник на ${state.alarmTime}`;
+    target.classList.add('active');
+    btn.textContent = '✕ Выключить будильник';
+    btn.classList.add('armed');
+  } else {
+    target.textContent = 'Будильник не установлен';
+    target.classList.remove('active');
+    btn.textContent = '⏰ Включить будильник';
+    btn.classList.remove('armed');
+  }
+}
+updateAlarmUI();
+
+// ---------- Выбор мелодии ----------
+document.querySelectorAll('#melody-cards .card').forEach(card => {
+  if (card.dataset.melody === state.melody) {
+    document.querySelectorAll('#melody-cards .card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+  }
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#melody-cards .card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.melody = card.dataset.melody;
+    haptic('selection');
+    saveState();
+  });
+});
+
+// ---------- Выбор задания ----------
+document.querySelectorAll('#task-cards .card').forEach(card => {
+  if (card.dataset.task === state.task) {
+    document.querySelectorAll('#task-cards .card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+  }
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#task-cards .card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.task = card.dataset.task;
+    haptic('selection');
+    saveState();
+  });
+});
+
+// ---------- Установка будильника ----------
+$('set-alarm').addEventListener('click', () => {
+  haptic('impact', 'medium');
+  if (state.alarmArmed) {
+    state.alarmArmed = false;
+    state.alarmTime = null;
+    showToast('Будильник выключен');
+  } else {
+    const t = $('alarm-time').value;
+    if (!t) { showToast('Укажите время'); return; }
+    state.alarmTime = t;
+    state.alarmArmed = true;
+    showToast(`Будильник на ${t}`);
+    haptic('notification', 'success');
+  }
+  saveState();
+  updateAlarmUI();
+});
+
+// ==========================================================
+// AUDIO — Web Audio API
+// ==========================================================
+function ensureAudio() {
+  if (!state.audioCtx) {
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+  return state.audioCtx;
+}
+
+// Разовый звук (для теста)
+function playMelodyOnce(melody) {
+  const ctx = ensureAudio();
+  const stop = playMelodyLoop(melody, true);
+  setTimeout(stop, 4000);
+}
+
+// Запуск цикла мелодии. Возвращает функцию остановки.
+function playMelodyLoop(melody, once = false) {
+  const ctx = ensureAudio();
+  stopMelody();
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0.5;
+  gain.connect(ctx.destination);
+  state.melodyNodes.push(gain);
+
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(state.melodyInterval);
+    state.melodyInterval = null;
+    try { gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1); } catch(e){}
+    setTimeout(() => {
+      try { gain.disconnect(); } catch(e){}
+      state.melodyNodes = state.melodyNodes.filter(n => n !== gain);
+    }, 200);
+  };
+
+  const playPattern = () => {
+    if (stopped) return;
+    if (melody === 'gentle') playGentle(ctx, gain);
+    else if (melody === 'normal') playNormal(ctx, gain);
+    else if (melody === 'heavy') playHeavy(ctx, gain);
+  };
+
+  playPattern();
+  const period = melody === 'heavy' ? 1800 : melody === 'normal' ? 1600 : 2400;
+  state.melodyInterval = setInterval(playPattern, period);
+
+  return stop;
+}
+
+function playGentle(ctx, out) {
+  // Мягкое арпеджио: C5 - E5 - G5 - C6 синусоидами
+  const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25];
+  const now = ctx.currentTime;
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const start = now + i * 0.35;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(0.25, start + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
+    osc.connect(g); g.connect(out);
+    osc.start(start);
+    osc.stop(start + 0.5);
+  });
+}
+
+function playNormal(ctx, out) {
+  // Классический бип-бип будильника (square)
+  const now = ctx.currentTime;
+  for (let k = 0; k < 4; k++) {
+    const t = now + k * 0.35;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 880;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.18, t + 0.01);
+    g.gain.setValueAtTime(0.18, t + 0.12);
+    g.gain.linearRampToValueAtTime(0, t + 0.18);
+    osc.connect(g); g.connect(out);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+}
+
+function playHeavy(ctx, out) {
+  // Мощная сирена: sawtooth с модуляцией частоты + низкий бас
+  const now = ctx.currentTime;
+  // Сирена (sweep 400 -> 900 -> 400)
+  const osc1 = ctx.createOscillator();
+  const g1 = ctx.createGain();
+  osc1.type = 'sawtooth';
+  osc1.frequency.setValueAtTime(400, now);
+  osc1.frequency.linearRampToValueAtTime(900, now + 0.8);
+  osc1.frequency.linearRampToValueAtTime(400, now + 1.6);
+  g1.gain.setValueAtTime(0, now);
+  g1.gain.linearRampToValueAtTime(0.25, now + 0.05);
+  g1.gain.setValueAtTime(0.25, now + 1.5);
+  g1.gain.linearRampToValueAtTime(0, now + 1.7);
+  osc1.connect(g1); g1.connect(out);
+  osc1.start(now); osc1.stop(now + 1.75);
+
+  // Низкий бас (square 110 Hz пульсирующий)
+  const osc2 = ctx.createOscillator();
+  const g2 = ctx.createGain();
+  osc2.type = 'square';
+  osc2.frequency.value = 110;
+  g2.gain.setValueAtTime(0, now);
+  g2.gain.linearRampToValueAtTime(0.22, now + 0.05);
+  g2.gain.setValueAtTime(0.22, now + 1.5);
+  g2.gain.linearRampToValueAtTime(0, now + 1.7);
+  osc2.connect(g2); g2.connect(out);
+  osc2.start(now); osc2.stop(now + 1.75);
+}
+
+function stopMelody() {
+  if (state.melodyInterval) { clearInterval(state.melodyInterval); state.melodyInterval = null; }
+  state.melodyNodes.forEach(n => { try { n.disconnect(); } catch(e){} });
+  state.melodyNodes = [];
+}
+
+// ---------- Тест звонка ----------
+$('test-alarm').addEventListener('click', () => {
+  haptic('impact', 'medium');
+  ensureAudio();
+  playMelodyOnce(state.melody);
+  showToast('Тест: ' + ({gentle:'Аккуратная',normal:'Обычная',heavy:'Звонкий бас'}[state.melody]));
+});
+
+// ==========================================================
+// ТРЕВОГА — запуск и логика
+// ==========================================================
+function triggerAlarm() {
+  if (state.ringing) return;
+  state.ringing = true;
+  haptic('notification', 'warning');
+
+  // Переключаем экран
+  showScreen('alarm-screen');
+
+  // Звук
+  ensureAudio();
+  state.melodyStop = playMelodyLoop(state.melody);
+
+  // Вибрация постоянная (каждые 500мс)
+  state.vibInterval = setInterval(() => {
+    haptic('impact', 'heavy');
+    if (navigator.vibrate) try { navigator.vibrate([200, 80, 200]); } catch(e){}
+  }, 700);
+
+  // Часы на экране тревоги
+  const updateAlarmClock = () => {
+    if (!state.ringing) return;
+    const d = new Date();
+    $('alarm-clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    requestAnimationFrame(updateAlarmClock);
+  };
+  updateAlarmClock();
+
+  // Запуск задания
+  startTask();
 }
 
 function stopAlarm() {
-  isRinging = false; clearInterval(soundInterval);
-  document.getElementById('alarmScreen').style.display = 'none';
-  document.getElementById('statusText').innerText = 'Доброе утро! Будильник выключен';
-  if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+  state.ringing = false;
+  state.alarmArmed = false;
+  state.alarmTime = null;
+  saveState();
+  updateAlarmUI();
+
+  stopMelody();
+  if (state.vibInterval) { clearInterval(state.vibInterval); state.vibInterval = null; }
+  if (navigator.vibrate) try { navigator.vibrate(0); } catch(e){}
+
+  stopCamera();
+  stopMotionDetection();
+
+  haptic('notification', 'success');
+  showScreen('main-screen');
+  showToast('Доброе утро! ☀️');
 }
 
-let mathCount = 0, correctAns = 0;
-function startMathTask() { mathCount = 0; document.getElementById('mathProgress').innerText = 'Решено: 0 из 3'; nextMathProblem(); }
-function nextMathProblem() {
-  const a = Math.floor(Math.random() * 25) + 12, b = Math.floor(Math.random() * 25) + 11;
-  correctAns = a + b; document.getElementById('mathProblem').innerText = a + ' + ' + b + ' = ?';
-  document.getElementById('mathAnswer').value = '';
-}
-function checkMath() {
-  if (parseInt(document.getElementById('mathAnswer').value) === correctAns) {
-    mathCount++; document.getElementById('mathProgress').innerText = 'Решено: ' + mathCount + ' из 3';
-    if (mathCount >= 3) stopAlarm(); else nextMathProblem();
-  } else { document.getElementById('mathAnswer').value = ''; }
+// ---------- Переключение экранов ----------
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
 }
 
-let videoStream = null, reps = 0, state = 'up';
-async function startCameraTask() {
-  reps = 0; document.getElementById('counterText').innerText = '0 / 10';
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-    const video = document.getElementById('video'); video.srcObject = videoStream;
-    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
-    canvas.width = 64; canvas.height = 48;
-    const detect = setInterval(() => {
-      if (!isRinging) { clearInterval(detect); return; }
-      ctx.drawImage(video, 0, 0, 64, 48);
-      const data = ctx.getImageData(0, 0, 64, 48).data;
-      let topMass = 0, bottomMass = 0;
-      for (let y = 0; y < 48; y++) {
-        for (let x = 0; x < 64; x++) {
-          const i = (y * 64 + x) * 4, bright = (data[i] + data[i+1] + data[i+2]) / 3;
-          if (y < 24) topMass += bright; else bottomMass += bright;
-        }
+// ==========================================================
+// ЗАДАНИЯ
+// ==========================================================
+function startTask() {
+  const task = state.task;
+  const title = $('alarm-task-title');
+  const stopBtn = $('stop-alarm');
+
+  $('motion-block').style.display = 'none';
+  $('math-block').style.display = 'none';
+  stopBtn.disabled = true;
+  stopBtn.classList.remove('ready');
+  stopBtn.textContent = 'Выполните задание';
+
+  if (task === 'pushups' || task === 'squats') {
+    // Пробуем камеру, если не получится — fallback на математику
+    startCamera().then(ok => {
+      if (!ok) {
+        showToast('Камера недоступна — включаем примеры');
+        startMathTask();
+        return;
       }
-      const ratio = bottomMass / (topMass + 1);
-      if (ratio > 1.15 && state === 'up') state = 'down';
-      if (ratio < 0.98 && state === 'down') {
-        state = 'up'; reps++; document.getElementById('counterText').innerText = reps + ' / 10';
-        if (reps >= 10) { clearInterval(detect); stopAlarm(); }
-      }
-    }, 150);
-  } catch (e) {
-    document.getElementById('taskTitle').innerText = 'Нет доступа к камере. Реши примеры!';
-    document.getElementById('cameraZone').style.display = 'none';
-    document.getElementById('mathZone').style.display = 'block';
+      $('motion-block').style.display = 'flex';
+      title.textContent = task === 'pushups' ? 'Сделайте 10 отжиманий' : 'Сделайте 10 приседаний';
+      state.repCount = 0;
+      $('rep-count').textContent = '0';
+      startMotionDetection(task);
+    });
+  } else {
     startMathTask();
   }
 }
 
-if (window.location.search.includes('ring=1')) window.addEventListener('load', () => setTimeout(triggerAlarm, 500));
+function taskCompleted() {
+  const stopBtn = $('stop-alarm');
+  stopBtn.disabled = false;
+  stopBtn.classList.add('ready');
+  stopBtn.textContent = '✓ Отключить будильник';
+  haptic('notification', 'success');
+}
+
+$('stop-alarm').addEventListener('click', () => {
+  if ($('stop-alarm').disabled) return;
+  stopAlarm();
+});
+
+// ==========================================================
+// КАМЕРА
+// ==========================================================
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+      audio: false
+    });
+    state.cameraStream = stream;
+    const preview = $('camera-preview');
+    preview.srcObject = stream;
+    await preview.play().catch(()=>{});
+    return true;
+  } catch (e) {
+    console.warn('Camera error:', e);
+    return false;
+  }
+}
+
+function stopCamera() {
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(t => t.stop());
+    state.cameraStream = null;
+  }
+  const preview = $('camera-preview');
+  preview.srcObject = null;
+}
+
+// ==========================================================
+// ДЕТЕКЦИЯ ДВИЖЕНИЯ (отжимания / приседания)
+// ==========================================================
+function startMotionDetection(type) {
+  const video = $('camera-preview');
+  const canvas = $('motion-canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const W = canvas.width, H = canvas.height;
+
+  state.motionPrev = null;
+  state.motionHistory = [];
+  state.motionPhase = 'idle';
+  state.motionCooldown = 0;
+  state.repCount = 0;
+
+  // ROI: для отжиманий — верхняя треть (голова), для приседаний — весь кадр
+  const roiY = type === 'pushups' ? 0 : 0;
+  const roiH = type === 'pushups' ? Math.floor(H / 3) : H;
+
+  let lastFrame = 0;
+  const FPS = 15;
+  const frameMs = 1000 / FPS;
+
+  function loop(ts) {
+    if (!state.ringing) return;
+    state.motionRAF = requestAnimationFrame(loop);
+
+    if (ts - lastFrame < frameMs) return;
+    lastFrame = ts;
+
+    if (video.readyState < 2) return;
+
+    // Зеркалим для пользователя
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -W, 0, W, H);
+    ctx.restore();
+
+    const img = ctx.getImageData(0, roiY, W, roiH);
+    const curr = grayscale(img.data);
+
+    if (!state.motionPrev) {
+      state.motionPrev = curr;
+      return;
+    }
+
+    // Считаем разницу
+    let diff = 0;
+    for (let i = 0; i < curr.length; i++) {
+      const d = Math.abs(curr[i] - state.motionPrev[i]);
+      if (d > 20) diff += d;
+    }
+    const motionLevel = diff / curr.length; // 0..~80
+    state.motionPrev = curr;
+
+    // Сглаживание
+    state.motionHistory.push(motionLevel);
+    if (state.motionHistory.length > 8) state.motionHistory.shift();
+    const avg = state.motionHistory.reduce((a,b)=>a+b,0) / state.motionHistory.length;
+
+    // UI индикатор
+    const pct = Math.min(100, (avg / 30) * 100);
+    $('motion-bar-fill').style.width = pct + '%';
+
+    // Логика подсчёта повторений через пики
+    // Порог "активного движения"
+    const THRESHOLD = 8;
+    const now = performance.now();
+
+    if (state.motionCooldown > 0) {
+      state.motionCooldown -= frameMs;
+    }
+
+    if (state.motionPhase === 'idle') {
+      if (avg > THRESHOLD) {
+        state.motionPhase = 'active';
+        state.motionDownTime = now;
+        $('motion-label').textContent = type === 'pushups' ? 'Вниз...' : 'Приседайте...';
+      }
+    } else if (state.motionPhase === 'active') {
+      if (avg < THRESHOLD * 0.5 && (now - state.motionDownTime) > 350) {
+        // Завершение повторения
+        if (state.motionCooldown <= 0) {
+          state.repCount++;
+          $('rep-count').textContent = state.repCount;
+          haptic('impact', 'medium');
+          state.motionCooldown = 500;
+          $('motion-label').textContent = `Ещё ${10 - state.repCount}!`;
+          if (state.repCount >= 10) {
+            taskCompleted();
+            $('motion-label').textContent = '✓ Готово!';
+            return;
+          }
+        }
+        state.motionPhase = 'idle';
+      } else if (now - state.motionDownTime > 3000) {
+        // Таймаут — сброс
+        state.motionPhase = 'idle';
+      }
+    }
+  }
+
+  state.motionRAF = requestAnimationFrame(loop);
+}
+
+function stopMotionDetection() {
+  if (state.motionRAF) { cancelAnimationFrame(state.motionRAF); state.motionRAF = null; }
+}
+
+function grayscale(data) {
+  const len = data.length / 4;
+  const out = new Uint8ClampedArray(len);
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    out[j] = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) | 0;
+  }
+  return out;
+}
+
+// ==========================================================
+// МАТЕМАТИКА
+// ==========================================================
+function startMathTask() {
+  $('math-block').style.display = 'flex';
+  $('alarm-task-title').textContent = 'Решите 3 примера';
+  state.mathIndex = 0;
+  nextMathProblem();
+}
+
+function nextMathProblem() {
+  if (state.mathIndex >= 3) {
+    taskCompleted();
+    return;
+  }
+  $('math-progress').textContent = `Пример ${state.mathIndex + 1} из 3`;
+  // Генерация примера
+  const ops = ['+', '-', '×'];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let a, b, ans;
+  if (op === '+') {
+    a = 10 + Math.floor(Math.random() * 80);
+    b = 10 + Math.floor(Math.random() * 80);
+    ans = a + b;
+  } else if (op === '-') {
+    a = 30 + Math.floor(Math.random() * 70);
+    b = 10 + Math.floor(Math.random() * (a - 5));
+    ans = a - b;
+  } else {
+    a = 3 + Math.floor(Math.random() * 12);
+    b = 3 + Math.floor(Math.random() * 9);
+    ans = a * b;
+  }
+  state.mathAnswer = ans;
+  $('math-problem').textContent = `${a} ${op} ${b} = ?`;
+  $('math-input').value = '';
+  setTimeout(() => $('math-input').focus(), 100);
+}
+
+$('math-check').addEventListener('click', checkMath);
+$('math-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkMath();
+});
+
+function checkMath() {
+  const v = parseInt($('math-input').value, 10);
+  if (isNaN(v)) { showToast('Введите число'); return; }
+  if (v === state.mathAnswer) {
+    haptic('notification', 'success');
+    state.mathIndex++;
+    nextMathProblem();
+  } else {
+    haptic('notification', 'error');
+    showToast('Неверно, попробуйте ещё');
+    $('math-input').value = '';
+    $('math-input').focus();
+  }
+}
+
+// ==========================================================
+// НОЧНОЙ РЕЖИМ + WAKELOCK
+// ==========================================================
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    $('night-wakelock').textContent = 'WakeLock не поддерживается';
+    return;
+  }
+  try {
+    state.wakeLock = await navigator.wakeLock.request('screen');
+    state.wakeLock.addEventListener('release', () => {
+      if (state.nightMode) acquireWakeLock(); // перевыпуск при возврате
+    });
+  } catch (e) {
+    console.warn('WakeLock error:', e);
+  }
+}
+function releaseWakeLock() {
+  if (state.wakeLock) {
+    state.wakeLock.release().catch(()=>{});
+    state.wakeLock = null;
+  }
+}
+
+$('night-mode').addEventListener('click', async () => {
+  haptic('impact', 'medium');
+  state.nightMode = true;
+  showScreen('night-screen');
+  await acquireWakeLock();
+});
+
+$('exit-night').addEventListener('click', () => {
+  haptic('impact', 'light');
+  state.nightMode = false;
+  releaseWakeLock();
+  showScreen('main-screen');
+});
+
+// Восстановление WakeLock при возвращении вкладки
+document.addEventListener('visibilitychange', () => {
+  if (state.nightMode && document.visibilityState === 'visible') {
+    acquireWakeLock();
+  }
+});
+
+// ==========================================================
+// ?ring=1 — мгновенный запуск тревоги
+// ==========================================================
+function checkRingParam() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ring') === '1') {
+      // Даём UI прогрузиться и запускаем
+      setTimeout(() => {
+        ensureAudio();
+        triggerAlarm();
+      }, 300);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+// Первый пользовательский жест — разблокировка AudioContext
+document.addEventListener('click', () => { ensureAudio(); }, { once: true });
+document.addEventListener('touchstart', () => { ensureAudio(); }, { once: true });
+
+// Инициализация
+if (!checkRingParam()) {
+  // обычный запуск
+}
+
+// Если Telegram WebApp — закрываем по свайпу вниз (опционально)
+if (tg && tg.BackButton) {
+  // Можно обрабатывать кнопку "назад"
+}
+
 </script>
 </body>
 </html>
