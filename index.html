@@ -12,6 +12,8 @@
         .sound-row { display: flex; gap: 8px; width: 100%; max-width: 300px; margin: 0 auto 14px auto; }
         select { flex: 1; font-size: 15px; padding: 12px; border-radius: 12px; border: none; background: #2c2c2c; color: #fff; }
         button { font-size: 16px; font-weight: bold; padding: 14px 24px; border-radius: 12px; border: none; background: #2979ff; color: #fff; width: 100%; max-width: 300px; margin: 6px 0; }
+        button:active { transform: scale(0.98); }
+        .btn-green { background: #00c853; color: #000; }
         .btn-dark { background: #2c2c2c; }
         .hidden { display: none !important; }
         #video-container { width: 100%; max-width: 320px; margin: 15px auto; border-radius: 16px; overflow: hidden; border: 3px solid #ff1744; }
@@ -19,7 +21,7 @@
         .counter { font-size: 36px; font-weight: bold; color: #ffea00; margin: 10px 0; }
         .math-box { background: #1e1e1e; padding: 20px; border-radius: 16px; width: 100%; max-width: 300px; }
         input[type="number"] { font-size: 24px; padding: 10px; width: 120px; text-align: center; border-radius: 8px; border: none; margin: 10px 0; }
-        .hint-box { background: #1e1e1e; padding: 12px; border-radius: 10px; font-size: 13px; color: #bbb; max-width: 300px; margin-top: 12px; text-align: left; }
+        .note { font-size: 12px; color: #888; max-width: 300px; margin-top: 10px; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -35,17 +37,11 @@
             </select>
             <button style="width:auto; padding:12px 16px; margin:0; background:#333;" onclick="previewSound()">🔊</button>
         </div>
-        <button onclick="setAlarm()">Включить будильник</button>
-        <button class="btn-dark" onclick="triggerAlarm()">Тест звонка прямо сейчас</button>
-        <button class="btn-dark" style="font-size:13px;" onclick="document.getElementById('ios-hint').classList.toggle('hidden')">📱 Автозапуск при заблокированном экране</button>
-        <p id="status-text" style="color: #00e676; margin-top: 15px; font-weight: bold;"></p>
-        <div id="ios-hint" class="hint-box hidden">
-            <b>Для iPhone («Команды» → «Автоматизация»):</b><br>
-            1. Выбери <b>«Будильник»</b> или <b>«Время суток»</b>.<br>
-            2. Добавь <b>«Открыть URL»</b> и вставь:<br>
-            <span style="color:#00e676; word-break:break-all;">https://github.io</span><br>
-            3. Включи <b>«Немедленный запуск»</b>.
-        </div>
+        <button class="btn-green" onclick="addToCalendar()">📅 Поставить (работает в фоне)</button>
+        <button onclick="setAlarm()">⏳ Таймер на экране (не закрывать)</button>
+        <button class="btn-dark" onclick="triggerAlarm()">🚨 Тест звонка прямо сейчас</button>
+        <p id="status-text" style="color: #00e676; margin-top: 12px; font-weight: bold; font-size: 14px;"></p>
+        <p class="note">Зелёная кнопка добавит будильник в системный Календарь — он разбудит даже при заблокированном экране и откроет камеру для отжиманий.</p>
     </div>
     <div id="ringing-screen" class="hidden">
         <h1 style="color: #ff1744;">🚨 ПОДЪЁМ! 🚨</h1>
@@ -79,6 +75,54 @@
             document.getElementById('current-time').innerText = h + ':' + m + ':' + s;
             if (alarmTime && !isRinging && (h + ':' + m) === alarmTime && s === '00') triggerAlarm();
         }, 1000);
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        function formatICSDate(d) {
+            return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+        }
+
+        function addToCalendar() {
+            const input = document.getElementById('alarm-time').value;
+            if (!input) return alert('Сначала выбери время подъёма!');
+            const parts = input.split(':');
+            const now = new Date();
+            const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(parts[0]), parseInt(parts[1]), 0);
+            if (target <= now) target.setDate(target.getDate() + 1);
+            const end = new Date(target.getTime() + 10 * 60000);
+
+            const ics = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//SmartAlarm//TelegramMiniApp//RU',
+                'BEGIN:VEVENT',
+                'DTSTART:' + formatICSDate(target),
+                'DTEND:' + formatICSDate(end),
+                'SUMMARY:🚨 ПОДЪЁМ! 10 отжиманий',
+                'DESCRIPTION:Нажми на ссылку, чтобы выключить сирену: https://github.io',
+                'URL:https://github.io',
+                'BEGIN:VALARM',
+                'TRIGGER:-PT0M',
+                'ACTION:DISPLAY',
+                'DESCRIPTION:ПОДЪЁМ!',
+                'END:VALARM',
+                'BEGIN:VALARM',
+                'TRIGGER:PT1M',
+                'ACTION:DISPLAY',
+                'DESCRIPTION:ВСТАВАЙ! 10 отжиманий!',
+                'END:VALARM',
+                'END:VEVENT',
+                'END:VCALENDAR'
+            ].join('\r\n');
+
+            const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+                window.Telegram.WebApp.openLink(dataUri);
+            } else {
+                window.location.href = dataUri;
+            }
+            document.getElementById('status-text').innerText = '✅ Нажми «Добавить» в открывшемся окне Календаря!';
+        }
 
         function unlockAudio() {
             const AC = window.AudioContext || window.webkitAudioContext;
@@ -115,7 +159,7 @@
             if (!input) return alert('Сначала выбери время!');
             unlockAudio();
             alarmTime = input;
-            document.getElementById('status-text').innerText = '✅ Будильник на ' + alarmTime;
+            document.getElementById('status-text').innerText = '✅ Таймер запущен на ' + alarmTime + ' (не закрывай экран)';
         }
 
         function triggerAlarm() {
