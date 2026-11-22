@@ -74,7 +74,7 @@
         <br>
         <button onclick="setAlarm()">Включить будильник</button>
         <button style="background:#333; font-size:14px;" onclick="triggerAlarm()">Тест звонка прямо сейчас</button>
-        <p id="status-text" style="color: #aaa; margin-top: 15px;"></p>
+        <p id="status-text" style="color: #00e676; margin-top: 15px; font-weight: bold;"></p>
     </div>
 
     <div id="ringing-screen" class="hidden">
@@ -100,8 +100,9 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.expand();
+        }
 
         let alarmTime = null;
         let isRinging = false;
@@ -113,34 +114,54 @@
 
         setInterval(() => {
             const now = new Date();
-            const timeStr = now.toTimeString().split(' ');
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${h}:${m}:${s}`;
             document.getElementById('current-time').innerText = timeStr;
-            if (alarmTime && !isRinging && timeStr.startsWith(alarmTime) && now.getSeconds() === 0) {
+            
+            if (alarmTime && !isRinging && `${h}:${m}` === alarmTime && s === '00') {
                 triggerAlarm();
             }
         }, 1000);
 
+        function unlockAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
         function setAlarm() {
             const input = document.getElementById('alarm-time').value;
-            if (!input) return alert('Сначала выбери время!');
+            if (!input) {
+                alert('Сначала выбери время!');
+                return;
+            }
+            unlockAudio();
             alarmTime = input;
-            document.getElementById('status-text').innerText = `Будильник установлен на ${alarmTime}. Не закрывай окно!`;
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            document.getElementById('status-text').innerText = `✅ Будильник установлен на ${alarmTime}. Не закрывай это окно!`;
         }
 
         function startSound() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            beepInterval = setInterval(() => {
+            unlockAudio();
+            const playBeep = () => {
+                if (!isRinging || !audioCtx) return;
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = 'square';
                 osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.3);
-            }, 600);
+            };
+            playBeep();
+            beepInterval = setInterval(playBeep, 600);
         }
 
         function stopSound() {
@@ -236,8 +257,8 @@
             document.getElementById('ringing-screen').classList.add('hidden');
             document.getElementById('setup-screen').classList.remove('hidden');
             document.getElementById('status-text').innerText = '';
-            alarmTime = null;
-        }
+        alarmTime = null;
+    }
     </script>
 </body>
 </html>
