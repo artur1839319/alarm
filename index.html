@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Умный будильник</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <style>
     /* ==================== RESET & BASE ==================== */
     * {
@@ -245,7 +244,7 @@
     .task-area { width: 100%; max-width: 340px; margin-bottom: 16px; }
     .task-title {
       font-size: 17px; font-weight: 600; color: var(--text);
-      margin-bottom: 14px; text-align: center;
+      margin-bottom: 14px; text-align: center; line-height: 1.35;
     }
     .task-counter {
       font-size: 46px; font-weight: 200; color: var(--accent);
@@ -267,7 +266,7 @@
     }
     .math-input:focus { border-color: var(--accent); }
 
-    /* ==================== VIDEO PREVIEW ==================== */
+    /* ==================== VIDEO / CANVAS PREVIEW ==================== */
     .video-preview {
       width: 240px; height: 300px; border-radius: 16px; background: #2C2C2E;
       margin: 14px auto; display: flex; align-items: center; justify-content: center;
@@ -304,6 +303,22 @@
     }
     .lowlight-btn:active { transform: scale(0.97); }
     .lowlight-btn.show { display: block; }
+
+    /* Motion status panel */
+    .motion-visual {
+      width: 100%; height: 80px; background: #2C2C2E;
+      border-radius: 14px; margin: 14px 0; overflow: hidden;
+      border: 1px solid var(--card-border);
+      position: relative;
+    }
+    .motion-visual canvas {
+      width: 100%; height: 100%; display: block;
+    }
+    .motion-value {
+      font-size: 14px; color: var(--text-secondary);
+      text-align: center; font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
 
     /* ==================== NIGHT OVERLAY ==================== */
     .night-overlay {
@@ -447,7 +462,7 @@
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="5" r="2"/><path d="M10 22v-6l-2-3V9a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4l-2 3v6"/>
             </svg>
-            10 приседаний (камера)
+            10 приседаний (датчик)
           </div>
           <div class="choice" data-task="math">
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -571,10 +586,11 @@
     const headerStatus = document.getElementById('headerStatus');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v4';
-    const RING_FLAG = 'smart_alarm_ringing_v4';
+    const STORAGE_KEY = 'smart_alarm_state_v5';
+    const RING_FLAG = 'smart_alarm_ringing_v5';
     const REPS_TARGET = 10;
-    const SMOOTHING_FRAMES = 3;
+    const MOTION_COOLDOWN_MS = 700;
+    const BRIGHTNESS_COOLDOWN_MS = 700;
 
     // ==================== STATE ====================
     const state = {
@@ -596,25 +612,25 @@
       mathProblems: [],
       mathIndex: 0,
       mathCorrect: 0,
+      // Motion (squats)
+      motionActive: false,
+      motionHandler: null,
+      motionPhase: 'up',
+      lastRepTime: 0,
+      motionVisualCanvas: null,
+      motionValueEl: null,
+      motionBaseline: 0,
+      // Camera (pushups)
       stream: null,
-      pose: null,
-      depthBarEl: null,
-      poseStatusEl: null,
-      poseReady: false,
-      phase: 'up',
-      // Vertical tracking with shoulder-width scaling
-      baseYSamples: [],
-      calibrationStart: 0,
-      CALIBRATION_MS: 1500,
-      topY: null,
-      topShoulderWidth: null,
-      lastSmoothedY: null,
-      yHistory: [],
-      downThresholdY: null,
-      returnThresholdY: null,
-      lastShoulderWidth: null,
-      // Low-light
-      noLandmarkSince: 0,
+      brightnessInterval: null,
+      brightnessCanvas: null,
+      brightnessCtx: null,
+      brightnessBaseline: null,
+      brightnessPhase: 'up',
+      lastBrightnessRep: 0,
+      brightnessValueEl: null,
+      // Low-light (pushups)
+      noSignalSince: 0,
       lowLightTriggered: false,
       lowLightBtnEl: null,
       // Audio
@@ -1183,7 +1199,6 @@
         headerStatus.style.color = 'var(--accent)';
         ensureKeepAlive();
         saveState();
-        if (state.task === 'pushups' || state.task === 'squats') await requestCamera();
         showToast(`Будильник включён на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`);
       }
     });
@@ -1192,7 +1207,6 @@
     testBtn.addEventListener('click', async () => {
       initAudioCtx();
       haptic('medium');
-      if (state.task === 'pushups' || state.task === 'squats') await requestCamera();
       triggerAlarm(true);
     });
 
@@ -1268,223 +1282,249 @@
       wakeVideo.srcObject = null;
     }
 
-    // ==================== CAMERA & POSE ====================
-    async function requestCamera() {
-      if (state.stream) return true;
-      try {
-        state.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: 640, height: 480 }, audio: false
-        });
-        return true;
-      } catch(e) {
-        showToast('Камера недоступна. Будет использовано задание с примерами.');
-        state.task = 'math';
-        taskGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
-        document.querySelector('[data-task="math"]')?.classList.add('active');
-        return false;
+    // ==================== SQUATS: DEVICE MOTION ====================
+    async function startSquatDetector() {
+      // iOS 13+ requires explicit permission
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== 'granted') {
+            showToast('Нет доступа к датчику движения. Переключаемся на примеры.');
+            setupMathTask(5);
+            return false;
+          }
+        } catch(e) {
+          showToast('Ошибка запроса датчика движения. Переключаемся на примеры.');
+          setupMathTask(5);
+          return false;
+        }
+      }
+
+      state.motionActive = true;
+      state.motionPhase = 'up';
+      state.lastRepTime = 0;
+      state.repCount = 0;
+
+      // Build UI
+      taskArea.innerHTML = `
+        <div class="task-title">Возьмите iPhone в руку и сделайте 10 приседаний</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
+        <div class="motion-visual"><canvas id="motionCanvas"></canvas></div>
+        <div class="motion-value" id="motionValue">Ожидание движения…</div>
+        <div class="pose-status" id="poseStatus">Держите телефон в руке</div>
+      `;
+      state.motionVisualCanvas = document.getElementById('motionCanvas');
+      state.motionValueEl = document.getElementById('motionValue');
+
+      // Draw a simple live graph
+      const cv = state.motionVisualCanvas;
+      const ctx2d = cv.getContext('2d');
+      cv.width = cv.clientWidth * (window.devicePixelRatio || 1);
+      cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
+      const history = new Array(120).fill(0);
+
+      state.motionHandler = (event) => {
+        if (!state.motionActive || !state.ringing) return;
+        const acc = event.accelerationIncludingGravity;
+        if (!acc) return;
+        // Use Y component primarily; fall back to Z if Y is near zero (phone lying flat)
+        let vertical = acc.y ?? 0;
+        if (Math.abs(vertical) < 0.5 && typeof acc.z === 'number') {
+          vertical = acc.z;
+        }
+
+        // Update graph
+        history.push(vertical);
+        history.shift();
+        const w = cv.width, h = cv.height;
+        ctx2d.clearRect(0, 0, w, h);
+        ctx2d.strokeStyle = 'rgba(255,159,10,0.8)';
+        ctx2d.lineWidth = 2 * (window.devicePixelRatio || 1);
+        ctx2d.beginPath();
+        for (let i = 0; i < history.length; i++) {
+          const x = (i / (history.length - 1)) * w;
+          const y = h / 2 - history[i] * (h / 8);
+          if (i === 0) ctx2d.moveTo(x, y);
+          else ctx2d.lineTo(x, y);
+        }
+        ctx2d.stroke();
+        // Center line
+        ctx2d.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx2d.lineWidth = 1;
+        ctx2d.beginPath();
+        ctx2d.moveTo(0, h / 2);
+        ctx2d.lineTo(w, h / 2);
+        ctx2d.stroke();
+
+        if (state.motionValueEl) {
+          state.motionValueEl.textContent = `Ускорение: ${vertical.toFixed(2)} м/с²`;
+        }
+
+        // Detection: descending when Y drops (phone moves down with body)
+        // Thresholds chosen for hand-held phone; Y swings roughly ±3-10 m/s² during a squat
+        const now = Date.now();
+        const cooldownOK = (now - state.lastRepTime) > MOTION_COOLDOWN_MS;
+
+        if (state.motionPhase === 'up' && vertical < -3.5 && cooldownOK) {
+          state.motionPhase = 'down';
+          updatePoseStatus('Отлично, теперь вверх!');
+          haptic('selection');
+        } else if (state.motionPhase === 'down' && vertical > 2.5) {
+          state.motionPhase = 'up';
+          state.lastRepTime = now;
+          state.repCount++;
+          updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
+          haptic('medium');
+          const repEl = document.getElementById('repCounter');
+          if (repEl) repEl.textContent = state.repCount;
+          if (state.repCount >= REPS_TARGET) completeTask();
+        }
+      };
+
+      window.addEventListener('devicemotion', state.motionHandler, true);
+      updatePoseStatus('Держите телефон в руке и приседайте');
+      return true;
+    }
+
+    function stopSquatDetector() {
+      state.motionActive = false;
+      if (state.motionHandler) {
+        window.removeEventListener('devicemotion', state.motionHandler, true);
+        state.motionHandler = null;
       }
     }
 
-    function stopCamera() {
+    // ==================== PUSH-UPS: BRIGHTNESS PROXIMITY ====================
+    async function startPushupDetector() {
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 320, height: 240 }, audio: false
+        });
+      } catch(e) {
+        showToast('Камера недоступна. Используем примеры.');
+        setupMathTask(5);
+        return false;
+      }
+
+      state.repCount = 0;
+      state.brightnessPhase = 'up';
+      state.lastBrightnessRep = 0;
+      state.brightnessBaseline = null;
+
+      taskArea.innerHTML = `
+        <div class="task-title">Положите телефон на пол лицом вверх под грудь и сделайте 10 отжиманий</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
+        <div class="video-preview" id="videoPreview">
+          <canvas class="overlay" id="overlayCanvas"></canvas>
+        </div>
+        <div class="pose-status" id="poseStatus">Опускайтесь к телефону</div>
+        <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
+        <button class="lowlight-btn" id="lowLightBtn">Плохое освещение — заменить на 5 примеров</button>
+      `;
+      const preview = document.getElementById('videoPreview');
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = state.stream;
+      preview.insertBefore(video, preview.firstChild);
+
+      // Hidden 64x64 canvas for brightness
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = 64;
+      bCanvas.height = 64;
+      state.brightnessCanvas = bCanvas;
+      state.brightnessCtx = bCanvas.getContext('2d', { willReadFrequently: true });
+
+      state.lowLightBtnEl = document.getElementById('lowLightBtn');
+      state.lowLightBtnEl.addEventListener('click', () => {
+        haptic('selection');
+        stopPushupDetector();
+        setupMathTask(5);
+      });
+
+      state.depthBarEl = document.getElementById('depthBar');
+      state.poseStatusEl = document.getElementById('poseStatus');
+
+      const repCounter = document.getElementById('repCounter');
+      state.brightnessInterval = setInterval(() => {
+        if (!state.ringing) return;
+        if (video.readyState < 2) return;
+        const bctx = state.brightnessCtx;
+        bctx.drawImage(video, 0, 0, 64, 64);
+        const data = bctx.getImageData(16, 16, 32, 32).data; // central 32x32 region
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          sum += (data[i] + data[i+1] + data[i+2]) / 3;
+        }
+        const avg = sum / (data.length / 4); // 0..255
+
+        // Baseline = ambient brightness at start (first 30 samples)
+        if (state.brightnessBaseline === null) {
+          state.brightnessBaselineSamples = state.brightnessBaselineSamples || [];
+          state.brightnessBaselineSamples.push(avg);
+          if (state.brightnessBaselineSamples.length >= 30) {
+            const sorted = state.brightnessBaselineSamples.slice().sort((a,b) => a-b);
+            state.brightnessBaseline = sorted[Math.floor(sorted.length / 2)];
+            updatePoseStatus('Готово. Опускайтесь к телефону!');
+          } else {
+            updatePoseStatus('Калибровка…');
+            return;
+          }
+        }
+
+        const base = state.brightnessBaseline;
+        const dropThreshold = base * 0.55;   // body covers lens → big drop
+        const returnThreshold = base * 0.82; // return close to baseline
+
+        // Depth bar
+        const depth = Math.max(0, Math.min(100, ((base - avg) / base) * 100));
+        if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
+
+        const now = Date.now();
+        const cooldownOK = (now - state.lastBrightnessRep) > BRIGHTNESS_COOLDOWN_MS;
+
+        if (state.brightnessPhase === 'up' && avg < dropThreshold && cooldownOK) {
+          state.brightnessPhase = 'down';
+          updatePoseStatus('Отлично, теперь вверх!');
+          haptic('selection');
+        } else if (state.brightnessPhase === 'down' && avg > returnThreshold) {
+          state.brightnessPhase = 'up';
+          state.lastBrightnessRep = now;
+          state.repCount++;
+          updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
+          haptic('medium');
+          if (repCounter) repCounter.textContent = state.repCount;
+          if (state.repCount >= REPS_TARGET) completeTask();
+        }
+
+        // Low-light detection: brightness is very low for a long time
+        if (avg < 15) {
+          if (!state.noSignalSince) state.noSignalSince = now;
+          else if (now - state.noSignalSince > 5000 && !state.lowLightTriggered) {
+            state.lowLightTriggered = true;
+            if (state.lowLightBtnEl) state.lowLightBtnEl.classList.add('show');
+            showToast('Плохое освещение. Нажмите кнопку ниже.', 3500);
+          }
+        } else {
+          state.noSignalSince = 0;
+        }
+      }, 100);
+
+      return true;
+    }
+
+    function stopPushupDetector() {
+      if (state.brightnessInterval) {
+        clearInterval(state.brightnessInterval);
+        state.brightnessInterval = null;
+      }
       if (state.stream) {
         state.stream.getTracks().forEach(t => t.stop());
         state.stream = null;
       }
-      if (state.pose) {
-        try { state.pose.close(); } catch(e) {}
-        state.pose = null;
-      }
-    }
-
-    async function initPose() {
-      if (state.poseReady) return true;
-      if (typeof Pose === 'undefined') return false;
-      try {
-        const pose = new Pose({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`
-        });
-        pose.setOptions({
-          modelComplexity: 1,
-          smoothLandmarks: true,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-        pose.onResults(onPoseResults);
-        state.pose = pose;
-        state.poseReady = true;
-        return true;
-      } catch(e) { return false; }
-    }
-
-    // ==================== RELATIVE-SCALE VERTICAL TRACKING ====================
-    // Uses shoulder width in frame to define down-threshold.
-    // Pushups: downThreshold = topY + 0.45 * shoulderWidth
-    // Squats:  downThreshold = topY + 0.85 * shoulderWidth
-    // Return threshold = topY + 0.5 * (downThreshold - topY)  (midpoint)
-    function onPoseResults(results) {
-      if (!state.ringing) return;
-      const landmarks = results.poseLandmarks;
-      const overlay = document.querySelector('.video-preview canvas.overlay');
-      if (!landmarks) {
-        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
-        drawOverlay(overlay, null, null, null);
-        markNoLandmark();
-        return;
-      }
-
-      const nose = landmarks[0];
-      const ls = landmarks[11];
-      const rs = landmarks[12];
-
-      const visOk = nose && ls && rs &&
-        (nose.visibility ?? 0) > 0.4 &&
-        (ls.visibility ?? 0) > 0.4 &&
-        (rs.visibility ?? 0) > 0.4;
-
-      if (!visOk) {
-        updatePoseStatus('Нужно видеть лицо и плечи');
-        drawOverlay(overlay, null, null, null);
-        markNoLandmark();
-        return;
-      }
-      clearNoLandmark();
-
-      const avgY = (nose.y + ls.y + rs.y) / 3;
-      const shoulderWidth = Math.abs(ls.x - rs.x);
-      state.lastShoulderWidth = shoulderWidth;
-
-      // Calibration phase (first 1.5s after camera start)
-      const now = Date.now();
-      if (!state.calibrationStart) state.calibrationStart = now;
-      const elapsed = now - state.calibrationStart;
-
-      if (elapsed < state.CALIBRATION_MS) {
-        state.baseYSamples.push(avgY);
-        updatePoseStatus('Приготовьтесь...');
-        drawOverlay(overlay, avgY, null, null);
-        return;
-      }
-
-      // Lock topY and topShoulderWidth from calibration samples
-      if (state.topY === null) {
-        const sorted = state.baseYSamples.slice().sort((a,b) => a-b);
-        state.topY = sorted[Math.floor(sorted.length / 2)] || avgY;
-        state.topShoulderWidth = shoulderWidth || 0.15;
-        // Compute threshold once, based on relative shoulder width
-        const downDelta = state.task === 'pushups'
-          ? 0.45 * state.topShoulderWidth
-          : 0.85 * state.topShoulderWidth;
-        state.downThresholdY = state.topY + downDelta;
-        state.returnThresholdY = state.topY + downDelta * 0.5;
-      }
-
-      // Smooth Y over 3 frames
-      state.yHistory.push(avgY);
-      if (state.yHistory.length > SMOOTHING_FRAMES) state.yHistory.shift();
-      const smoothY = state.yHistory.reduce((a,b) => a+b, 0) / state.yHistory.length;
-
-      // Depth bar (0..100)
-      const depthRange = (state.downThresholdY - state.topY) || 0.1;
-      const depth = Math.max(0, Math.min(100, ((smoothY - state.topY) / depthRange) * 100));
-      if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
-
-      // State machine with hysteresis
-      if (state.phase === 'up' && smoothY > state.downThresholdY) {
-        state.phase = 'down';
-        updatePoseStatus('Отлично, теперь вверх');
-        haptic('selection');
-      } else if (state.phase === 'down' && smoothY < state.returnThresholdY) {
-        state.phase = 'up';
-        state.repCount++;
-        updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
-        haptic('medium');
-        const repEl = document.getElementById('repCounter');
-        if (repEl) repEl.textContent = state.repCount;
-        if (state.repCount >= REPS_TARGET) completeTask();
-      } else if (state.phase === 'up' && smoothY <= state.returnThresholdY) {
-        updatePoseStatus('Опустись ниже');
-      }
-
-      drawOverlay(overlay, smoothY, state.downThresholdY, state.returnThresholdY, state.topY);
-    }
-
-    function drawOverlay(canvas, currentY, downY, returnY, topY) {
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
-      const h = canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
-      ctx.clearRect(0, 0, w, h);
-
-      if (downY !== undefined && downY !== null) {
-        // Down target (amber dashed)
-        ctx.strokeStyle = 'rgba(255,159,10,0.8)';
-        ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
-        ctx.setLineDash([8, 6]);
-        ctx.beginPath();
-        ctx.moveTo(0, downY * h);
-        ctx.lineTo(w, downY * h);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      if (returnY !== undefined && returnY !== null) {
-        // Return threshold (soft green)
-        ctx.strokeStyle = 'rgba(48,209,88,0.45)';
-        ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1);
-        ctx.beginPath();
-        ctx.moveTo(0, returnY * h);
-        ctx.lineTo(w, returnY * h);
-        ctx.stroke();
-      }
-
-      if (topY !== undefined && topY !== null) {
-        // Top reference (soft white)
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1 * (window.devicePixelRatio || 1);
-        ctx.beginPath();
-        ctx.moveTo(0, topY * h);
-        ctx.lineTo(w, topY * h);
-        ctx.stroke();
-      }
-
-      if (currentY !== null && currentY !== undefined) {
-        const my = currentY * h;
-        // Live marker
-        ctx.fillStyle = 'rgba(255,159,10,0.95)';
-        ctx.beginPath();
-        ctx.arc(w / 2, my, 7 * (window.devicePixelRatio || 1), 0, Math.PI * 2);
-        ctx.fill();
-
-        // Horizontal band
-        ctx.strokeStyle = 'rgba(255,159,10,0.55)';
-        ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1);
-        ctx.beginPath();
-        ctx.moveTo(w * 0.18, my);
-        ctx.lineTo(w * 0.82, my);
-        ctx.stroke();
-      }
-    }
-
-    function updatePoseStatus(text) {
-      if (state.poseStatusEl) state.poseStatusEl.textContent = text;
-    }
-
-    // ==================== LOW-LIGHT ====================
-    function markNoLandmark() {
-      if (!state.noLandmarkSince) state.noLandmarkSince = Date.now();
-      const elapsed = Date.now() - state.noLandmarkSince;
-      if (elapsed > 5000 && !state.lowLightTriggered) {
-        state.lowLightTriggered = true;
-        if (state.lowLightBtnEl) state.lowLightBtnEl.classList.add('show');
-        showToast('Плохое освещение. Нажмите кнопку ниже.', 3500);
-      }
-    }
-    function clearNoLandmark() {
-      state.noLandmarkSince = 0;
-      if (state.lowLightTriggered) {
-        state.lowLightTriggered = false;
-        if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
-      }
+      if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
     }
 
     // ==================== MATH ====================
@@ -1503,155 +1543,6 @@
         problems.push({ text, answer });
       }
       return problems;
-    }
-
-    // ==================== TRIGGER ALARM ====================
-    async function triggerAlarm(isTest = false) {
-      if (state.ringing) return;
-      state.ringing = true;
-      try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
-      saveState();
-
-      state.repCount = 0;
-      state.phase = 'up';
-      state.topY = null;
-      state.topShoulderWidth = null;
-      state.baseYSamples = [];
-      state.calibrationStart = 0;
-      state.yHistory = [];
-      state.noLandmarkSince = 0;
-      state.lowLightTriggered = false;
-
-      if (typeof tg.enableClosingConfirmation === 'function') {
-        try { tg.enableClosingConfirmation(); } catch(e) {}
-      }
-      nightExitBtn.style.display = 'none';
-
-      initAudioCtx();
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
-        try { await state.audioCtx.resume(); } catch(e) {}
-      }
-      await requestWakeLock();
-
-      if (state.nightMode) {
-        nightOverlay.classList.remove('active');
-        nightModeToggle.classList.remove('on');
-        clockDisplay.classList.remove('dim');
-        stopWakeVideo();
-      }
-
-      await startWavAlarm(state.melody);
-
-      if (state.hapticInterval) clearInterval(state.hapticInterval);
-      state.hapticInterval = setInterval(() => {
-        if (!state.ringing) return;
-        haptic('error');
-      }, 1500);
-      haptic('error');
-
-      ringOverlay.classList.add('active');
-      stopAlarmBtn.classList.add('hidden');
-
-      taskArea.innerHTML = '';
-      state.mathProblems = [];
-      state.mathIndex = 0;
-      state.mathCorrect = 0;
-
-      if (isTest) {
-        stopAlarmBtn.classList.remove('hidden');
-        const testMsg = document.createElement('div');
-        testMsg.style.cssText = 'color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:16px;';
-        testMsg.textContent = 'Тестовый режим — задание не требуется';
-        taskArea.appendChild(testMsg);
-      } else {
-        if (state.task === 'pushups' || state.task === 'squats') {
-          const camOk = await setupCameraTask();
-          if (!camOk) setupMathTask(5);
-        } else {
-          setupMathTask(3);
-        }
-      }
-    }
-
-    async function setupCameraTask() {
-      const camOk = await requestCamera();
-      if (!camOk) return false;
-      const poseOk = await initPose();
-      if (!poseOk) {
-        showToast('Не удалось загрузить распознавание позы');
-        setupMathTask(5);
-        return true;
-      }
-      const label = state.task === 'pushups' ? 'отжиманий' : 'приседаний';
-
-      taskArea.innerHTML = `
-        <div class="task-title">Сделайте ${REPS_TARGET} ${label}</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
-        <div class="video-preview" id="videoPreview">
-          <canvas class="overlay"></canvas>
-        </div>
-        <div class="pose-status" id="poseStatus">Приготовьтесь...</div>
-        <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
-        <button class="lowlight-btn" id="lowLightBtn">Плохое освещение — заменить на 5 примеров</button>
-      `;
-
-      state.poseStatusEl = document.getElementById('poseStatus');
-      state.depthBarEl = document.getElementById('depthBar');
-      state.lowLightBtnEl = document.getElementById('lowLightBtn');
-      state.lowLightBtnEl.addEventListener('click', () => {
-        haptic('selection');
-        stopCamera();
-        setupMathTask(5);
-      });
-
-      const preview = document.getElementById('videoPreview');
-      const video = document.createElement('video');
-      video.autoplay = true;
-      video.playsInline = true;
-      video.muted = true;
-      video.srcObject = state.stream;
-      preview.insertBefore(video, preview.firstChild);
-
-      // Reset calibration
-      state.repCount = 0;
-      state.phase = 'up';
-      state.topY = null;
-      state.topShoulderWidth = null;
-      state.baseYSamples = [];
-      state.calibrationStart = 0;
-      state.yHistory = [];
-      state.noLandmarkSince = 0;
-      state.lowLightTriggered = false;
-
-      video.onloadeddata = async () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = 640; canvas.height = 480;
-          canvas.style.display = 'none';
-          document.body.appendChild(canvas);
-          const ctx2d = canvas.getContext('2d');
-          const processFrame = async () => {
-            if (!state.ringing || !state.pose) return;
-            if (video.readyState >= 2) {
-              ctx2d.drawImage(video, 0, 0, 640, 480);
-              await state.pose.send({ image: canvas });
-            }
-            requestAnimationFrame(processFrame);
-          };
-          processFrame();
-        } catch(e) {
-          showToast('Ошибка распознавания');
-          setupMathTask(5);
-        }
-      };
-
-      const repCounter = document.getElementById('repCounter');
-      const counterInterval = setInterval(() => {
-        if (!state.ringing) { clearInterval(counterInterval); return; }
-        if (repCounter) repCounter.textContent = state.repCount;
-      }, 100);
-
-      return true;
     }
 
     function setupMathTask(count = 3) {
@@ -1695,10 +1586,77 @@
       renderProblem();
     }
 
+    function updatePoseStatus(text) {
+      if (state.poseStatusEl) state.poseStatusEl.textContent = text;
+    }
+
     function completeTask() {
       showToast('Задание выполнено! Будильник отключён.', 3000);
       haptic('success');
       stopAlarm();
+    }
+
+    // ==================== TRIGGER ALARM ====================
+    async function triggerAlarm(isTest = false) {
+      if (state.ringing) return;
+      state.ringing = true;
+      try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
+      saveState();
+
+      state.repCount = 0;
+
+      if (typeof tg.enableClosingConfirmation === 'function') {
+        try { tg.enableClosingConfirmation(); } catch(e) {}
+      }
+      nightExitBtn.style.display = 'none';
+
+      initAudioCtx();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        try { await state.audioCtx.resume(); } catch(e) {}
+      }
+      await requestWakeLock();
+
+      if (state.nightMode) {
+        nightOverlay.classList.remove('active');
+        nightModeToggle.classList.remove('on');
+        clockDisplay.classList.remove('dim');
+        stopWakeVideo();
+      }
+
+      await startWavAlarm(state.melody);
+
+      if (state.hapticInterval) clearInterval(state.hapticInterval);
+      state.hapticInterval = setInterval(() => {
+        if (!state.ringing) return;
+        haptic('error');
+      }, 1500);
+      haptic('error');
+
+      ringOverlay.classList.add('active');
+      stopAlarmBtn.classList.add('hidden');
+
+      taskArea.innerHTML = '';
+      state.mathProblems = [];
+      state.mathIndex = 0;
+      state.mathCorrect = 0;
+
+      if (isTest) {
+        stopAlarmBtn.classList.remove('hidden');
+        const testMsg = document.createElement('div');
+        testMsg.style.cssText = 'color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:16px;';
+        testMsg.textContent = 'Тестовый режим — задание не требуется';
+        taskArea.appendChild(testMsg);
+      } else {
+        if (state.task === 'pushups') {
+          const ok = await startPushupDetector();
+          if (!ok) setupMathTask(5);
+        } else if (state.task === 'squats') {
+          const ok = await startSquatDetector();
+          if (!ok) setupMathTask(5);
+        } else {
+          setupMathTask(3);
+        }
+      }
     }
 
     // ==================== STOP ALARM ====================
@@ -1708,12 +1666,13 @@
       try { localStorage.removeItem(RING_FLAG); } catch(e) {}
 
       stopWavAlarm();
+      stopSquatDetector();
+      stopPushupDetector();
 
       if (state.hapticInterval) {
         clearInterval(state.hapticInterval);
         state.hapticInterval = null;
       }
-      stopCamera();
       ringOverlay.classList.remove('active');
       taskArea.innerHTML = '';
 
@@ -1775,8 +1734,9 @@
 
     window.addEventListener('beforeunload', () => {
       stopSilentAudio();
+      stopSquatDetector();
+      stopPushupDetector();
       if (state.hapticInterval) clearInterval(state.hapticInterval);
-      stopCamera();
       releaseWakeLock();
       stopWakeVideo();
     });
