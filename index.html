@@ -292,17 +292,19 @@
       height: 100%; width: 0%; background: var(--accent);
       border-radius: 3px; transition: width 0.1s ease;
     }
-    .lowlight-btn {
-      display: none; margin-top: 12px; width: 100%;
-      padding: 11px 14px; border-radius: 12px;
-      background: rgba(255,159,10,0.12);
-      border: 1px solid rgba(255,159,10,0.35);
-      color: var(--accent); font-size: 13px; font-weight: 600;
-      cursor: pointer; font-family: inherit;
-      transition: transform 0.15s ease;
+    .fallback-link {
+      display: block;
+      margin: 14px auto 0;
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      text-decoration: underline;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 6px 10px;
     }
-    .lowlight-btn:active { transform: scale(0.97); }
-    .lowlight-btn.show { display: block; }
+    .fallback-link:active { color: var(--text-secondary); }
 
     /* Motion status panel */
     .motion-visual {
@@ -318,6 +320,14 @@
       font-size: 14px; color: var(--text-secondary);
       text-align: center; font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum";
+    }
+    .motion-start-btn {
+      margin: 18px auto 10px;
+      width: 100%;
+      max-width: 280px;
+      padding: 17px;
+      font-size: 17px;
+      font-weight: 700;
     }
 
     /* ==================== NIGHT OVERLAY ==================== */
@@ -586,11 +596,14 @@
     const headerStatus = document.getElementById('headerStatus');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v5';
-    const RING_FLAG = 'smart_alarm_ringing_v5';
+    const STORAGE_KEY = 'smart_alarm_state_v6';
+    const RING_FLAG = 'smart_alarm_ringing_v6';
     const REPS_TARGET = 10;
-    const MOTION_COOLDOWN_MS = 700;
-    const BRIGHTNESS_COOLDOWN_MS = 700;
+    // Squat detection thresholds (magnitude of accelerationIncludingGravity)
+    const SQUAT_DOWN_THRESHOLD = 7.8;   // m/s² – weightless dip at bottom
+    const SQUAT_UP_THRESHOLD = 11.8;    // m/s² – push back up peak
+    const SQUAT_COOLDOWN_MS = 800;      // min time between reps
+    const PUSHUP_COOLDOWN_MS = 700;
 
     // ==================== STATE ====================
     const state = {
@@ -612,24 +625,23 @@
       mathProblems: [],
       mathIndex: 0,
       mathCorrect: 0,
-      // Motion (squats)
+      // Squats (motion)
       motionActive: false,
       motionHandler: null,
       motionPhase: 'up',
       lastRepTime: 0,
       motionVisualCanvas: null,
       motionValueEl: null,
-      motionBaseline: 0,
+      squatScreenBuilt: false,
       // Camera (pushups)
       stream: null,
       brightnessInterval: null,
       brightnessCanvas: null,
       brightnessCtx: null,
       brightnessBaseline: null,
+      brightnessBaselineSamples: null,
       brightnessPhase: 'up',
       lastBrightnessRep: 0,
-      brightnessValueEl: null,
-      // Low-light (pushups)
       noSignalSince: 0,
       lowLightTriggered: false,
       lowLightBtnEl: null,
@@ -638,6 +650,9 @@
       volumeRampInterval: null,
       hapticInterval: null,
       currentWavUrl: null,
+      // Pose status helper
+      poseStatusEl: null,
+      depthBarEl: null,
     };
 
     // ==================== PERSISTENCE ====================
@@ -1282,109 +1297,156 @@
       wakeVideo.srcObject = null;
     }
 
-    // ==================== SQUATS: DEVICE MOTION ====================
-    async function startSquatDetector() {
-      // iOS 13+ requires explicit permission
+    // ==================== SQUATS: SCREEN + PERMISSION ON CLICK ====================
+    // Shows a screen with a "Начать приседания" button. DeviceMotion permission
+    // is requested ONLY inside that button's click handler (required on iOS 13+).
+    function showSquatScreen() {
+      state.repCount = 0;
+      state.motionPhase = 'up';
+      state.lastRepTime = 0;
+      state.squatScreenBuilt = true;
+
+      taskArea.innerHTML = `
+        <div class="task-title">Возьмите iPhone в руку и сделайте 10 приседаний</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
+        <div class="motion-visual"><canvas id="motionCanvas"></canvas></div>
+        <div class="motion-value" id="motionValue">Ожидание запуска…</div>
+        <div class="pose-status" id="poseStatus">Нажмите «Начать приседания»</div>
+        <button class="btn btn-primary motion-start-btn" id="startSquatBtn">Начать приседания</button>
+        <button class="fallback-link" id="squatFallbackBtn">Датчик не сработал? Переключиться на примеры</button>
+      `;
+
+      state.motionVisualCanvas = document.getElementById('motionCanvas');
+      state.motionValueEl = document.getElementById('motionValue');
+      state.poseStatusEl = document.getElementById('poseStatus');
+      state.depthBarEl = null;
+
+      // Prepare the live graph canvas
+      const cv = state.motionVisualCanvas;
+      const ctx2d = cv.getContext('2d');
+      cv.width = cv.clientWidth * (window.devicePixelRatio || 1);
+      cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
+      const history = new Array(120).fill(9.8);
+      state.motionHistory = history;
+      state.motionGraphCtx = ctx2d;
+
+      document.getElementById('startSquatBtn').addEventListener('click', onStartSquatClick);
+      document.getElementById('squatFallbackBtn').addEventListener('click', () => {
+        haptic('selection');
+        setupMathTask(5);
+      });
+    }
+
+    async function onStartSquatClick() {
+      const btn = document.getElementById('startSquatBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Запрос разрешения…'; }
+
+      // iOS 13+ requires explicit permission INSIDE a user gesture.
       if (typeof DeviceMotionEvent !== 'undefined' &&
           typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
           const perm = await DeviceMotionEvent.requestPermission();
           if (perm !== 'granted') {
-            showToast('Нет доступа к датчику движения. Переключаемся на примеры.');
-            setupMathTask(5);
-            return false;
+            showToast('Разрешение на датчик не выдано.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
+            return;
           }
-        } catch(e) {
-          showToast('Ошибка запроса датчика движения. Переключаемся на примеры.');
-          setupMathTask(5);
-          return false;
+        } catch (err) {
+          showToast('Ошибка запроса датчика. Можно переключиться на примеры ниже.');
+          if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
+          return;
         }
       }
 
+      // Android / browsers without permission gate: start immediately.
+      startMotionListener();
+
+      if (btn) {
+        btn.textContent = 'Приседания начались…';
+        btn.disabled = true;
+      }
+      if (state.poseStatusEl) state.poseStatusEl.textContent = 'Держите телефон в руке и приседайте';
+      haptic('success');
+    }
+
+    function startMotionListener() {
+      if (state.motionActive) return;
       state.motionActive = true;
       state.motionPhase = 'up';
       state.lastRepTime = 0;
-      state.repCount = 0;
-
-      // Build UI
-      taskArea.innerHTML = `
-        <div class="task-title">Возьмите iPhone в руку и сделайте 10 приседаний</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
-        <div class="motion-visual"><canvas id="motionCanvas"></canvas></div>
-        <div class="motion-value" id="motionValue">Ожидание движения…</div>
-        <div class="pose-status" id="poseStatus">Держите телефон в руке</div>
-      `;
-      state.motionVisualCanvas = document.getElementById('motionCanvas');
-      state.motionValueEl = document.getElementById('motionValue');
-
-      // Draw a simple live graph
-      const cv = state.motionVisualCanvas;
-      const ctx2d = cv.getContext('2d');
-      cv.width = cv.clientWidth * (window.devicePixelRatio || 1);
-      cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
-      const history = new Array(120).fill(0);
 
       state.motionHandler = (event) => {
         if (!state.motionActive || !state.ringing) return;
         const acc = event.accelerationIncludingGravity;
         if (!acc) return;
-        // Use Y component primarily; fall back to Z if Y is near zero (phone lying flat)
-        let vertical = acc.y ?? 0;
-        if (Math.abs(vertical) < 0.5 && typeof acc.z === 'number') {
-          vertical = acc.z;
-        }
+        const x = acc.x || 0, y = acc.y || 0, z = acc.z || 0;
+        // Magnitude of total acceleration ~9.8 m/s² at rest.
+        const magnitude = Math.sqrt(x*x + y*y + z*z);
 
-        // Update graph
-        history.push(vertical);
-        history.shift();
-        const w = cv.width, h = cv.height;
-        ctx2d.clearRect(0, 0, w, h);
-        ctx2d.strokeStyle = 'rgba(255,159,10,0.8)';
-        ctx2d.lineWidth = 2 * (window.devicePixelRatio || 1);
-        ctx2d.beginPath();
-        for (let i = 0; i < history.length; i++) {
-          const x = (i / (history.length - 1)) * w;
-          const y = h / 2 - history[i] * (h / 8);
-          if (i === 0) ctx2d.moveTo(x, y);
-          else ctx2d.lineTo(x, y);
+        // Update live graph
+        const hist = state.motionHistory;
+        const cv = state.motionVisualCanvas;
+        const ctx2d = state.motionGraphCtx;
+        if (hist && cv && ctx2d) {
+          hist.push(magnitude);
+          hist.shift();
+          const w = cv.width, h = cv.height;
+          ctx2d.clearRect(0, 0, w, h);
+          // Draw baseline 9.8
+          const yMid = h - ((9.8 / 16) * h);
+          ctx2d.strokeStyle = 'rgba(255,255,255,0.12)';
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, yMid);
+          ctx2d.lineTo(w, yMid);
+          ctx2d.stroke();
+          // Down threshold
+          const yDown = h - ((SQUAT_DOWN_THRESHOLD / 16) * h);
+          ctx2d.strokeStyle = 'rgba(255,159,10,0.5)';
+          ctx2d.setLineDash([4, 4]);
+          ctx2d.beginPath(); ctx2d.moveTo(0, yDown); ctx2d.lineTo(w, yDown); ctx2d.stroke();
+          ctx2d.setLineDash([]);
+          // Up threshold
+          const yUp = h - ((SQUAT_UP_THRESHOLD / 16) * h);
+          ctx2d.strokeStyle = 'rgba(48,209,88,0.45)';
+          ctx2d.beginPath(); ctx2d.moveTo(0, yUp); ctx2d.lineTo(w, yUp); ctx2d.stroke();
+          // Trace
+          ctx2d.strokeStyle = 'rgba(255,159,10,0.95)';
+          ctx2d.lineWidth = 2 * (window.devicePixelRatio || 1);
+          ctx2d.beginPath();
+          for (let i = 0; i < hist.length; i++) {
+            const xPos = (i / (hist.length - 1)) * w;
+            const yPos = h - ((hist[i] / 16) * h);
+            if (i === 0) ctx2d.moveTo(xPos, yPos);
+            else ctx2d.lineTo(xPos, yPos);
+          }
+          ctx2d.stroke();
         }
-        ctx2d.stroke();
-        // Center line
-        ctx2d.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx2d.lineWidth = 1;
-        ctx2d.beginPath();
-        ctx2d.moveTo(0, h / 2);
-        ctx2d.lineTo(w, h / 2);
-        ctx2d.stroke();
 
         if (state.motionValueEl) {
-          state.motionValueEl.textContent = `Ускорение: ${vertical.toFixed(2)} м/с²`;
+          state.motionValueEl.textContent = `|a| = ${magnitude.toFixed(2)} м/с²`;
         }
 
-        // Detection: descending when Y drops (phone moves down with body)
-        // Thresholds chosen for hand-held phone; Y swings roughly ±3-10 m/s² during a squat
         const now = Date.now();
-        const cooldownOK = (now - state.lastRepTime) > MOTION_COOLDOWN_MS;
+        const cooldownOK = (now - state.lastRepTime) > SQUAT_COOLDOWN_MS;
 
-        if (state.motionPhase === 'up' && vertical < -3.5 && cooldownOK) {
+        if (state.motionPhase === 'up' && magnitude < SQUAT_DOWN_THRESHOLD && cooldownOK) {
           state.motionPhase = 'down';
-          updatePoseStatus('Отлично, теперь вверх!');
+          if (state.poseStatusEl) state.poseStatusEl.textContent = 'Отлично, теперь вверх!';
           haptic('selection');
-        } else if (state.motionPhase === 'down' && vertical > 2.5) {
+        } else if (state.motionPhase === 'down' && magnitude > SQUAT_UP_THRESHOLD) {
           state.motionPhase = 'up';
           state.lastRepTime = now;
           state.repCount++;
-          updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
-          haptic('medium');
           const repEl = document.getElementById('repCounter');
           if (repEl) repEl.textContent = state.repCount;
+          if (state.poseStatusEl) state.poseStatusEl.textContent = `Повторение ${state.repCount} из ${REPS_TARGET}`;
+          haptic('medium');
           if (state.repCount >= REPS_TARGET) completeTask();
         }
       };
 
       window.addEventListener('devicemotion', state.motionHandler, true);
-      updatePoseStatus('Держите телефон в руке и приседайте');
-      return true;
     }
 
     function stopSquatDetector() {
@@ -1402,8 +1464,8 @@
           video: { facingMode: 'user', width: 320, height: 240 }, audio: false
         });
       } catch(e) {
-        showToast('Камера недоступна. Используем примеры.');
-        setupMathTask(5);
+        showToast('Камера недоступна. Переключитесь на примеры ниже.');
+        buildPushupFallbackScreen();
         return false;
       }
 
@@ -1411,6 +1473,7 @@
       state.brightnessPhase = 'up';
       state.lastBrightnessRep = 0;
       state.brightnessBaseline = null;
+      state.brightnessBaselineSamples = null;
 
       taskArea.innerHTML = `
         <div class="task-title">Положите телефон на пол лицом вверх под грудь и сделайте 10 отжиманий</div>
@@ -1418,9 +1481,9 @@
         <div class="video-preview" id="videoPreview">
           <canvas class="overlay" id="overlayCanvas"></canvas>
         </div>
-        <div class="pose-status" id="poseStatus">Опускайтесь к телефону</div>
+        <div class="pose-status" id="poseStatus">Калибровка…</div>
         <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
-        <button class="lowlight-btn" id="lowLightBtn">Плохое освещение — заменить на 5 примеров</button>
+        <button class="fallback-link" id="pushupFallbackBtn">Камера не видит? Переключиться на примеры</button>
       `;
       const preview = document.getElementById('videoPreview');
       const video = document.createElement('video');
@@ -1430,15 +1493,13 @@
       video.srcObject = state.stream;
       preview.insertBefore(video, preview.firstChild);
 
-      // Hidden 64x64 canvas for brightness
       const bCanvas = document.createElement('canvas');
       bCanvas.width = 64;
       bCanvas.height = 64;
       state.brightnessCanvas = bCanvas;
       state.brightnessCtx = bCanvas.getContext('2d', { willReadFrequently: true });
 
-      state.lowLightBtnEl = document.getElementById('lowLightBtn');
-      state.lowLightBtnEl.addEventListener('click', () => {
+      document.getElementById('pushupFallbackBtn').addEventListener('click', () => {
         haptic('selection');
         stopPushupDetector();
         setupMathTask(5);
@@ -1447,72 +1508,72 @@
       state.depthBarEl = document.getElementById('depthBar');
       state.poseStatusEl = document.getElementById('poseStatus');
 
-      const repCounter = document.getElementById('repCounter');
       state.brightnessInterval = setInterval(() => {
         if (!state.ringing) return;
         if (video.readyState < 2) return;
         const bctx = state.brightnessCtx;
         bctx.drawImage(video, 0, 0, 64, 64);
-        const data = bctx.getImageData(16, 16, 32, 32).data; // central 32x32 region
+        const data = bctx.getImageData(16, 16, 32, 32).data;
         let sum = 0;
         for (let i = 0; i < data.length; i += 4) {
           sum += (data[i] + data[i+1] + data[i+2]) / 3;
         }
-        const avg = sum / (data.length / 4); // 0..255
+        const avg = sum / (data.length / 4);
 
-        // Baseline = ambient brightness at start (first 30 samples)
         if (state.brightnessBaseline === null) {
-          state.brightnessBaselineSamples = state.brightnessBaselineSamples || [];
+          if (!state.brightnessBaselineSamples) state.brightnessBaselineSamples = [];
           state.brightnessBaselineSamples.push(avg);
           if (state.brightnessBaselineSamples.length >= 30) {
             const sorted = state.brightnessBaselineSamples.slice().sort((a,b) => a-b);
             state.brightnessBaseline = sorted[Math.floor(sorted.length / 2)];
-            updatePoseStatus('Готово. Опускайтесь к телефону!');
+            if (state.poseStatusEl) state.poseStatusEl.textContent = 'Готово. Опускайтесь к телефону!';
           } else {
-            updatePoseStatus('Калибровка…');
+            if (state.poseStatusEl) state.poseStatusEl.textContent = 'Калибровка…';
             return;
           }
         }
 
         const base = state.brightnessBaseline;
-        const dropThreshold = base * 0.55;   // body covers lens → big drop
-        const returnThreshold = base * 0.82; // return close to baseline
+        const dropThreshold = base * 0.55;
+        const returnThreshold = base * 0.82;
 
-        // Depth bar
         const depth = Math.max(0, Math.min(100, ((base - avg) / base) * 100));
         if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
 
         const now = Date.now();
-        const cooldownOK = (now - state.lastBrightnessRep) > BRIGHTNESS_COOLDOWN_MS;
+        const cooldownOK = (now - state.lastBrightnessRep) > PUSHUP_COOLDOWN_MS;
 
         if (state.brightnessPhase === 'up' && avg < dropThreshold && cooldownOK) {
           state.brightnessPhase = 'down';
-          updatePoseStatus('Отлично, теперь вверх!');
+          if (state.poseStatusEl) state.poseStatusEl.textContent = 'Отлично, теперь вверх!';
           haptic('selection');
         } else if (state.brightnessPhase === 'down' && avg > returnThreshold) {
           state.brightnessPhase = 'up';
           state.lastBrightnessRep = now;
           state.repCount++;
-          updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
+          const repEl = document.getElementById('repCounter');
+          if (repEl) repEl.textContent = state.repCount;
+          if (state.poseStatusEl) state.poseStatusEl.textContent = `Повторение ${state.repCount} из ${REPS_TARGET}`;
           haptic('medium');
-          if (repCounter) repCounter.textContent = state.repCount;
           if (state.repCount >= REPS_TARGET) completeTask();
-        }
-
-        // Low-light detection: brightness is very low for a long time
-        if (avg < 15) {
-          if (!state.noSignalSince) state.noSignalSince = now;
-          else if (now - state.noSignalSince > 5000 && !state.lowLightTriggered) {
-            state.lowLightTriggered = true;
-            if (state.lowLightBtnEl) state.lowLightBtnEl.classList.add('show');
-            showToast('Плохое освещение. Нажмите кнопку ниже.', 3500);
-          }
-        } else {
-          state.noSignalSince = 0;
         }
       }, 100);
 
       return true;
+    }
+
+    function buildPushupFallbackScreen() {
+      // If camera failed to start, still keep user on pushups screen
+      // with a fallback link instead of auto-switching to math.
+      taskArea.innerHTML = `
+        <div class="task-title">Положите телефон на пол лицом вверх под грудь и сделайте 10 отжиманий</div>
+        <div class="pose-status" id="poseStatus">Камера недоступна</div>
+        <button class="fallback-link" id="pushupFallbackBtn">Камера не работает? Переключиться на примеры</button>
+      `;
+      document.getElementById('pushupFallbackBtn').addEventListener('click', () => {
+        haptic('selection');
+        setupMathTask(5);
+      });
     }
 
     function stopPushupDetector() {
@@ -1524,7 +1585,6 @@
         state.stream.getTracks().forEach(t => t.stop());
         state.stream = null;
       }
-      if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
     }
 
     // ==================== MATH ====================
@@ -1546,7 +1606,8 @@
     }
 
     function setupMathTask(count = 3) {
-      if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
+      stopSquatDetector();
+      stopPushupDetector();
       state.mathProblems = generateMathProblems(count);
       state.mathIndex = 0;
       state.mathCorrect = 0;
@@ -1584,10 +1645,6 @@
         setTimeout(() => input.focus(), 100);
       };
       renderProblem();
-    }
-
-    function updatePoseStatus(text) {
-      if (state.poseStatusEl) state.poseStatusEl.textContent = text;
     }
 
     function completeTask() {
@@ -1647,12 +1704,11 @@
         testMsg.textContent = 'Тестовый режим — задание не требуется';
         taskArea.appendChild(testMsg);
       } else {
+        // NO automatic fallback to math. Each task opens its own screen.
         if (state.task === 'pushups') {
-          const ok = await startPushupDetector();
-          if (!ok) setupMathTask(5);
+          await startPushupDetector();
         } else if (state.task === 'squats') {
-          const ok = await startSquatDetector();
-          if (!ok) setupMathTask(5);
+          showSquatScreen();
         } else {
           setupMathTask(3);
         }
