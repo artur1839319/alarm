@@ -5,131 +5,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Умный будильник</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     /* ==================== RESET & BASE ==================== */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     :root {
-      --bg: #000000;
-      --card: #1C1C1E;
-      --card-border: rgba(255,255,255,0.08);
-      --accent: #FF9F0A;
-      --accent-dim: rgba(255,159,10,0.15);
-      --text: #FFFFFF;
-      --text-secondary: #8E8E93;
-      --text-tertiary: rgba(255,255,255,0.35);
-      --danger: #FF453A;
-      --success: #30D158;
-      --separator: rgba(255,255,255,0.06);
+      --bg: #000000; --card: #1C1C1E; --card-border: rgba(255,255,255,0.08);
+      --accent: #FF9F0A; --accent-dim: rgba(255,159,10,0.15);
+      --text: #FFFFFF; --text-secondary: #8E8E93; --text-tertiary: rgba(255,255,255,0.35);
+      --danger: #FF453A; --success: #30D158; --separator: rgba(255,255,255,0.06);
     }
     html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
+      height: 100%; background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      user-select: none;
-      -webkit-user-select: none;
-      overflow: hidden;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      user-select: none; -webkit-user-select: none; overflow: hidden;
     }
     body { display: flex; align-items: center; justify-content: center; }
 
     /* ==================== APP SHELL ==================== */
     .app {
-      position: relative;
-      width: 100%;
-      max-width: 440px;
-      height: 100vh;
-      height: 100dvh;
+      position: relative; width: 100%; max-width: 440px; height: 100vh; height: 100dvh;
       padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 20px);
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
-      overflow: hidden;
+      display: flex; flex-direction: column; background: var(--bg); overflow: hidden;
     }
 
     /* ==================== HEADER ==================== */
-    .header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 4px 12px; flex-shrink: 0;
-    }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 12px; flex-shrink: 0; }
     .header-title { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
-    .header-sub {
-      font-size: 12px; color: var(--text-tertiary);
-      font-weight: 500; letter-spacing: 0.2px; text-transform: uppercase;
-    }
+    .header-sub { font-size: 12px; color: var(--text-tertiary); font-weight: 500; letter-spacing: 0.2px; text-transform: uppercase; }
 
     /* ==================== SCROLL ==================== */
-    .scroll-content {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-      gap: 14px; padding-bottom: 8px; scrollbar-width: none;
-    }
+    .scroll-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; scrollbar-width: none; }
     .scroll-content::-webkit-scrollbar { display: none; }
 
     /* ==================== CLOCK ==================== */
     .clock-section { text-align: center; padding: 8px 0 4px; }
     .clock-time {
-      font-size: 88px; font-weight: 200; letter-spacing: -2px; line-height: 1;
-      color: var(--text); font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-      transition: opacity 0.4s ease, color 0.4s ease;
+      font-size: 88px; font-weight: 200; letter-spacing: -2px; line-height: 1; color: var(--text);
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; transition: opacity 0.4s ease, color 0.4s ease;
     }
     .clock-time.dim { color: #2c2c2e; }
-    .clock-date {
-      font-size: 14px; color: var(--text-secondary); margin-top: 8px;
-      font-weight: 500; letter-spacing: 0.2px;
-    }
-    .countdown {
-      margin-top: 10px; font-size: 14px; color: var(--accent); font-weight: 600;
-      letter-spacing: 0.3px; font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum"; min-height: 18px; transition: opacity 0.3s;
-    }
+    .clock-date { font-size: 14px; color: var(--text-secondary); margin-top: 8px; font-weight: 500; letter-spacing: 0.2px; }
+    .countdown { margin-top: 10px; font-size: 14px; color: var(--accent); font-weight: 600; letter-spacing: 0.3px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; min-height: 18px; transition: opacity 0.3s; }
     .countdown.idle { color: var(--text-tertiary); font-weight: 500; }
 
     /* ==================== CARD ==================== */
-    .card {
-      background: var(--card); border: 1px solid var(--card-border);
-      border-radius: 18px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-    }
+    .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
     .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-    .card-title {
-      font-size: 12px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.8px; color: var(--text-tertiary);
-    }
+    .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); }
 
     /* ==================== SVG ICON ==================== */
-    .icon {
-      width: 18px; height: 18px; flex-shrink: 0;
-      display: inline-block; vertical-align: middle; color: var(--accent);
-    }
+    .icon { width: 18px; height: 18px; flex-shrink: 0; display: inline-block; vertical-align: middle; color: var(--accent); }
     .icon-secondary { color: var(--text-secondary); }
     .icon-sm { width: 15px; height: 15px; }
 
     /* ==================== TIME PICKER ==================== */
     .time-picker-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
     .time-select {
-      flex: 1; background: #2C2C2E; border: 1px solid var(--card-border);
-      border-radius: 14px; padding: 16px 8px; color: var(--text);
-      font-size: 26px; font-weight: 300; text-align: center;
+      flex: 1; background: #2C2C2E; border: 1px solid var(--card-border); border-radius: 14px;
+      padding: 16px 8px; color: var(--text); font-size: 26px; font-weight: 300; text-align: center;
       font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-      appearance: none; -webkit-appearance: none; outline: none;
-      cursor: pointer; letter-spacing: 0.5px;
+      appearance: none; -webkit-appearance: none; outline: none; cursor: pointer; letter-spacing: 0.5px;
     }
     .time-select option { background: #2C2C2E; color: var(--text); }
 
     /* ==================== BUTTONS ==================== */
     .btn {
-      width: 100%; padding: 15px; border: none; border-radius: 14px;
-      font-size: 16px; font-weight: 600; cursor: pointer;
-      transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
-      color: var(--text); letter-spacing: 0.1px;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      font-family: inherit;
+      width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
+      color: var(--text); letter-spacing: 0.1px; display: flex; align-items: center; justify-content: center;
+      gap: 8px; font-family: inherit;
     }
     .btn:active { transform: scale(0.97); }
     .btn-primary { background: var(--accent); color: #000; box-shadow: 0 2px 10px rgba(255,159,10,0.25); }
@@ -137,80 +83,64 @@
     .btn-secondary { background: #2C2C2E; border: 1px solid var(--card-border); }
     .btn-sm { padding: 11px 14px; font-size: 14px; border-radius: 12px; }
     .btn .icon { color: currentColor; }
+    .btn:disabled { opacity: 0.5; }
 
     /* ==================== CHOICE GRID ==================== */
     .grid-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .grid-3 { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .choice {
-      padding: 13px 12px; border-radius: 12px; background: #2C2C2E;
-      border: 1.5px solid transparent; color: var(--text);
-      font-size: 14px; font-weight: 500; cursor: pointer;
-      transition: all 0.2s ease; text-align: left;
-      display: flex; align-items: center; gap: 10px;
+      padding: 13px 12px; border-radius: 12px; background: #2C2C2E; border: 1.5px solid transparent;
+      color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease;
+      text-align: left; display: flex; align-items: center; gap: 10px;
     }
     .choice:active { transform: scale(0.97); }
     .choice.active { border-color: var(--accent); background: var(--accent-dim); }
     .choice.active .icon { color: var(--accent); }
     .choice .icon { color: var(--text-secondary); }
+    .choice.locked { opacity: 0.6; }
+    .choice .lock { margin-left: auto; color: var(--text-tertiary); }
 
     /* ==================== TOGGLE ==================== */
     .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .toggle-label { font-size: 15px; font-weight: 500; }
     .toggle-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
     .toggle {
-      position: relative; width: 51px; height: 31px; border-radius: 16px;
-      background: #3A3A3C; flex-shrink: 0; cursor: pointer;
-      transition: background 0.3s ease;
+      position: relative; width: 51px; height: 31px; border-radius: 16px; background: #3A3A3C;
+      flex-shrink: 0; cursor: pointer; transition: background 0.3s ease;
     }
     .toggle.on { background: var(--accent); }
     .toggle::after {
-      content: ''; position: absolute; top: 2px; left: 2px;
-      width: 27px; height: 27px; border-radius: 50%; background: #fff;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
     }
     .toggle.on::after { transform: translateX(20px); }
+    .toggle.disabled { opacity: 0.45; pointer-events: none; }
 
     /* ==================== HINTS ==================== */
-    .hint {
-      font-size: 11px; color: var(--text-tertiary); text-align: center;
-      margin-top: 10px; line-height: 1.4; padding: 0 6px;
-    }
+    .hint { font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 10px; line-height: 1.4; padding: 0 6px; }
     .battery-warning {
-      display: none; margin-top: 10px; padding: 10px 14px;
-      border-radius: 12px; background: rgba(255,159,10,0.1);
-      border: 1px solid rgba(255,159,10,0.25); color: var(--accent);
-      font-size: 12px; line-height: 1.4; text-align: center;
+      display: none; margin-top: 10px; padding: 10px 14px; border-radius: 12px;
+      background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.25);
+      color: var(--accent); font-size: 12px; line-height: 1.4; text-align: center;
     }
     .battery-warning.show { display: block; }
 
     /* ==================== ALARM BADGE ==================== */
     .alarm-badge {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 14px; border-radius: 14px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(255,159,10,0.25);
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px;
+      background: var(--accent-dim); border: 1px solid rgba(255,159,10,0.25);
       color: var(--accent); font-size: 13px; font-weight: 600; margin-bottom: 2px;
     }
-    .pulse-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent); animation: pulse 1.5s infinite; flex-shrink: 0;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.8); }
-    }
+    .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; flex-shrink: 0; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
 
     /* ==================== TOAST ==================== */
     .toast {
-      position: fixed; bottom: 100px; left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: rgba(44,44,46,0.95); backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--card-border); border-radius: 14px;
-      padding: 13px 22px; font-size: 14px; color: var(--text);
-      opacity: 0; transition: all 0.3s ease; pointer-events: none;
-      z-index: 2000; max-width: 80%; text-align: center;
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(44,44,46,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border); border-radius: 14px; padding: 13px 22px;
+      font-size: 14px; color: var(--text); opacity: 0; transition: all 0.3s ease;
+      pointer-events: none; z-index: 2000; max-width: 80%; text-align: center;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -218,153 +148,143 @@
     .ring-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.94);
       backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
-      z-index: 1000; display: none; flex-direction: column;
-      align-items: center; justify-content: center;
+      z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center;
       padding: 30px; text-align: center;
     }
     .ring-overlay.active { display: flex; animation: fadeIn 0.4s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .ring-icon {
-      width: 56px; height: 56px; color: var(--accent);
-      margin-bottom: 16px; animation: ringBounce 1s infinite alternate;
-    }
-    @keyframes ringBounce {
-      from { transform: scale(1) rotate(-8deg); }
-      to { transform: scale(1.08) rotate(8deg); }
-    }
-    .ring-clock {
-      font-size: 62px; font-weight: 200; letter-spacing: -1px; color: var(--text);
-      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-      margin-bottom: 4px;
-    }
-    .ring-label {
-      font-size: 15px; color: var(--text-secondary);
-      margin-bottom: 28px; font-weight: 500;
-    }
+    .ring-icon { width: 56px; height: 56px; color: var(--accent); margin-bottom: 16px; animation: ringBounce 1s infinite alternate; }
+    @keyframes ringBounce { from { transform: scale(1) rotate(-8deg); } to { transform: scale(1.08) rotate(8deg); } }
+    .ring-clock { font-size: 62px; font-weight: 200; letter-spacing: -1px; color: var(--text); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; margin-bottom: 4px; }
+    .ring-label { font-size: 15px; color: var(--text-secondary); margin-bottom: 28px; font-weight: 500; }
     .task-area { width: 100%; max-width: 340px; margin-bottom: 16px; }
-    .task-title {
-      font-size: 17px; font-weight: 600; color: var(--text);
-      margin-bottom: 14px; text-align: center; line-height: 1.35;
-    }
-    .task-counter {
-      font-size: 46px; font-weight: 200; color: var(--accent);
-      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-      margin: 8px 0; letter-spacing: -1px;
-    }
+    .task-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 14px; text-align: center; line-height: 1.35; }
+    .task-counter { font-size: 46px; font-weight: 200; color: var(--accent); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; margin: 8px 0; letter-spacing: -1px; }
     .task-counter small { font-size: 17px; color: var(--text-tertiary); font-weight: 400; }
-    .math-problem {
-      font-size: 30px; font-weight: 300; color: var(--text);
-      margin: 14px 0; letter-spacing: 1px;
-      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-    }
+    .math-problem { font-size: 30px; font-weight: 300; color: var(--text); margin: 14px 0; letter-spacing: 1px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
     .math-input {
-      width: 140px; padding: 13px; font-size: 26px; text-align: center;
-      border-radius: 14px; border: 2px solid #3A3A3C; background: #2C2C2E;
-      color: var(--text); outline: none; margin: 10px auto; display: block;
-      font-weight: 300; font-variant-numeric: tabular-nums;
+      width: 140px; padding: 13px; font-size: 26px; text-align: center; border-radius: 14px;
+      border: 2px solid #3A3A3C; background: #2C2C2E; color: var(--text); outline: none;
+      margin: 10px auto; display: block; font-weight: 300; font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum"; transition: border-color 0.2s;
     }
     .math-input:focus { border-color: var(--accent); }
 
+    /* ==================== MEMORY GRID ==================== */
+    .memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px auto; max-width: 280px; }
+    .memory-tile {
+      aspect-ratio: 1; border-radius: 14px; background: #2C2C2E; border: 1px solid var(--card-border);
+      cursor: pointer; transition: background 0.15s ease, transform 0.1s ease;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: var(--text-tertiary);
+    }
+    .memory-tile:active { transform: scale(0.95); }
+    .memory-tile.lit { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 18px rgba(255,159,10,0.6); }
+    .memory-tile.wrong { background: var(--danger); border-color: var(--danger); }
+    .memory-status { font-size: 14px; color: var(--accent); min-height: 18px; font-weight: 500; text-align: center; margin-top: 8px; }
+
+    /* ==================== SCANNER ==================== */
+    .scanner-preview { width: 100%; max-width: 280px; height: 200px; border-radius: 16px; background: #2C2C2E; margin: 14px auto; overflow: hidden; border: 1px solid var(--card-border); position: relative; }
+    .scanner-preview video { width: 100%; height: 100%; object-fit: cover; }
+    .scanner-preview #qrReader { width: 100% !important; height: 100% !important; border: none !important; }
+    .scanner-preview #qrReader__dashboard { display: none !important; }
+    .scanner-preview #qrReader__header_message { display: none !important; }
+    .scanner-preview #qrReader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .scanner-code { font-size: 12px; color: var(--text-secondary); text-align: center; margin-top: 8px; word-break: break-all; }
+
     /* ==================== VIDEO / CANVAS PREVIEW ==================== */
     .video-preview {
-      width: 240px; height: 300px; border-radius: 16px; background: #2C2C2E;
-      margin: 14px auto; display: flex; align-items: center; justify-content: center;
-      overflow: hidden; border: 1px solid var(--card-border); position: relative;
+      width: 240px; height: 300px; border-radius: 16px; background: #2C2C2E; margin: 14px auto;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+      border: 1px solid var(--card-border); position: relative;
     }
-    .video-preview video {
-      width: 100%; height: 100%; object-fit: cover;
-      transform: scaleX(-1); position: absolute; inset: 0;
-    }
-    .video-preview canvas.overlay {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      pointer-events: none; z-index: 2;
-    }
-    .pose-status {
-      font-size: 14px; color: var(--accent); margin-top: 12px;
-      min-height: 18px; font-weight: 500; text-align: center;
-    }
-    .depth-bar-container {
-      width: 100%; height: 6px; background: #3A3A3C;
-      border-radius: 3px; margin-top: 10px; overflow: hidden;
-    }
-    .depth-bar-fill {
-      height: 100%; width: 0%; background: var(--accent);
-      border-radius: 3px; transition: width 0.1s ease;
-    }
-    .fallback-link {
-      display: block;
-      margin: 14px auto 0;
-      background: transparent;
-      border: none;
-      color: var(--text-tertiary);
-      font-size: 12px;
-      text-decoration: underline;
-      cursor: pointer;
-      font-family: inherit;
-      padding: 6px 10px;
-    }
+    .video-preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: absolute; inset: 0; }
+    .video-preview canvas.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+    .pose-status { font-size: 14px; color: var(--accent); margin-top: 12px; min-height: 18px; font-weight: 500; text-align: center; }
+    .depth-bar-container { width: 100%; height: 6px; background: #3A3A3C; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+    .depth-bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.1s ease; }
+    .fallback-link { display: block; margin: 14px auto 0; background: transparent; border: none; color: var(--text-tertiary); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: inherit; padding: 6px 10px; }
     .fallback-link:active { color: var(--text-secondary); }
 
-    /* Motion status panel */
-    .motion-visual {
-      width: 100%; height: 80px; background: #2C2C2E;
-      border-radius: 14px; margin: 14px 0; overflow: hidden;
-      border: 1px solid var(--card-border);
-      position: relative;
-    }
-    .motion-visual canvas {
-      width: 100%; height: 100%; display: block;
-    }
-    .motion-value {
-      font-size: 14px; color: var(--text-secondary);
-      text-align: center; font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-    }
-    .motion-start-btn {
-      margin: 18px auto 10px;
-      width: 100%;
-      max-width: 280px;
-      padding: 17px;
-      font-size: 17px;
-      font-weight: 700;
-    }
-
     /* ==================== NIGHT OVERLAY ==================== */
-    .night-overlay {
-      position: fixed; inset: 0; z-index: 999999; background: #000000;
-      display: none; flex-direction: column; align-items: center;
-      justify-content: center; padding: 20px;
-    }
+    .night-overlay { position: fixed; inset: 0; z-index: 999999; background: #000000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
     .night-overlay.active { display: flex; }
-    .night-clock {
-      font-size: 70px; font-weight: 100; color: #1f1f1f;
-      letter-spacing: 2px; line-height: 1;
-      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-    }
-    .night-date {
-      font-size: 12px; color: #151515; margin-top: 16px; letter-spacing: 0.5px;
-    }
+    .night-clock { font-size: 70px; font-weight: 100; color: #1f1f1f; letter-spacing: 2px; line-height: 1; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .night-date { font-size: 12px; color: #151515; margin-top: 16px; letter-spacing: 0.5px; }
     .night-exit-btn {
-      position: absolute; bottom: calc(env(safe-area-inset-bottom) + 40px);
-      left: 50%; transform: translateX(-50%);
-      background: transparent; border: 1px solid #111; color: #222;
-      padding: 11px 28px; border-radius: 24px; font-size: 13px;
-      cursor: pointer; outline: none;
-      transition: border-color 0.3s, opacity 0.3s; font-family: inherit;
+      position: absolute; bottom: calc(env(safe-area-inset-bottom) + 40px); left: 50%; transform: translateX(-50%);
+      background: transparent; border: 1px solid #111; color: #222; padding: 11px 28px; border-radius: 24px;
+      font-size: 13px; cursor: pointer; outline: none; transition: border-color 0.3s, opacity 0.3s; font-family: inherit;
     }
     .night-exit-btn:active { border-color: #333; }
+
+    /* ==================== MODAL ==================== */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      z-index: 1500; display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.active { display: flex; animation: fadeIn 0.25s ease; }
+    .modal {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 22px;
+      padding: 24px 20px; width: 100%; max-width: 380px; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.3px; }
+    .modal p { font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+    .premium-feature { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 14px; line-height: 1.4; }
+    .premium-feature .icon { color: var(--accent); margin-top: 1px; }
+    .premium-status {
+      padding: 12px 14px; border-radius: 12px; background: rgba(48,209,88,0.12);
+      border: 1px solid rgba(48,209,88,0.25); color: var(--success); font-size: 13px;
+      font-weight: 600; margin-bottom: 14px; text-align: center;
+    }
+    .premium-status.inactive { background: rgba(255,159,10,0.1); border-color: rgba(255,159,10,0.25); color: var(--accent); }
+    .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .modal-close {
+      background: transparent; border: none; color: var(--text-tertiary);
+      font-size: 14px; cursor: pointer; padding: 12px; font-family: inherit; margin-top: 6px;
+    }
+
+    /* ==================== ALARM LIST ITEM ==================== */
+    .alarm-item {
+      display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px;
+      background: #2C2C2E; border: 1px solid var(--card-border); margin-bottom: 10px;
+    }
+    .alarm-item-info { flex: 1; min-width: 0; }
+    .alarm-item-time { font-size: 24px; font-weight: 300; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: 0.5px; }
+    .alarm-item-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+    .alarm-item .toggle { width: 44px; height: 27px; }
+    .alarm-item .toggle::after { width: 23px; height: 23px; }
+    .alarm-item .toggle.on::after { transform: translateX(17px); }
+    .alarm-delete { background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 6px; display: flex; align-items: center; }
+    .add-alarm-btn {
+      width: 100%; padding: 13px; border-radius: 14px; background: var(--accent-dim);
+      border: 1px solid rgba(255,159,10,0.25); color: var(--accent);
+      font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .add-alarm-btn:active { transform: scale(0.98); }
+    .add-alarm-btn:disabled { opacity: 0.5; }
+
+    /* ==================== CUSTOM MELODY ROW ==================== */
+    .custom-melody-row {
+      display: flex; align-items: center; gap: 10px; padding: 13px 12px; border-radius: 12px;
+      background: #2C2C2E; border: 1.5px solid transparent; margin-top: 8px; cursor: pointer;
+    }
+    .custom-melody-row.active { border-color: var(--accent); background: var(--accent-dim); }
+    .custom-melody-row .name { flex: 1; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ==================== PREMIUM LOCK BADGE ==================== */
+    .lock-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px;
+      color: var(--accent); background: var(--accent-dim); padding: 3px 8px; border-radius: 8px;
+      border: 1px solid rgba(255,159,10,0.25); font-weight: 600;
+    }
 
     /* ==================== UTILITY ==================== */
     .hidden { display: none !important; }
     .separator { height: 1px; background: var(--separator); margin: 12px 0; }
-
-    /* ==================== HIDDEN ELEMENTS ==================== */
-    #wakeVideo {
-      position: fixed; top: -10px; left: -10px;
-      width: 1px; height: 1px; opacity: 0;
-      pointer-events: none; z-index: -1;
-    }
+    #wakeVideo { position: fixed; top: -10px; left: -10px; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1; }
     #alarmAudio { display: none; }
   </style>
 </head>
@@ -384,31 +304,47 @@
         <div class="countdown idle" id="countdown">Будильник выключен</div>
       </div>
 
+      <!-- Premium banner -->
+      <div class="card" id="premiumBanner" style="cursor:pointer;">
+        <div class="toggle-row">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+            </svg>
+            <div>
+              <div class="toggle-label" id="premiumBannerTitle">Premium</div>
+              <div class="toggle-sub" id="premiumBannerSub">3 дня бесплатно</div>
+            </div>
+          </div>
+          <svg class="icon icon-secondary icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </div>
+      </div>
+
       <!-- Alarm badge -->
       <div id="alarmBadge" class="alarm-badge hidden">
         <span class="pulse-dot"></span>
         <span id="alarmBadgeText">Будильник включён</span>
       </div>
 
-      <!-- Time picker -->
+      <!-- Alarm list (Premium: up to 5) -->
       <div class="card">
         <div class="card-header">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          <span class="card-title">Время подъёма</span>
-        </div>
-        <div class="time-picker-row">
-          <select class="time-select" id="hourSelect"></select>
-          <select class="time-select" id="minuteSelect"></select>
-        </div>
-        <button class="btn btn-primary" id="toggleAlarmBtn">
-          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#000;">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span id="toggleAlarmText">Включить будильник</span>
+          <span class="card-title">Мои будильники</span>
+        </div>
+        <div id="alarmList"></div>
+        <button class="add-alarm-btn" id="addAlarmBtn">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Добавить будильник
         </button>
+        <div class="hint">Бесплатно — 1 будильник. Premium — до 5.</div>
       </div>
 
       <!-- Melody -->
@@ -451,6 +387,20 @@
             Скрипка
           </div>
         </div>
+        <!-- Custom melody (Premium) -->
+        <div class="custom-melody-row" id="customMelodyRow">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="name" id="customMelodyName">Своя мелодия</span>
+          <span class="lock" id="customMelodyLock">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+        </div>
+        <input type="file" id="customMelodyInput" accept="audio/mpeg,audio/mp4,audio/wav,.mp3,.m4a" style="display:none;">
+        <div class="hint" id="customMelodyHint">Premium: загрузите свой файл (MP3, M4A, WAV).</div>
       </div>
 
       <!-- Task -->
@@ -462,25 +412,49 @@
           <span class="card-title">Задание для отключения</span>
         </div>
         <div class="grid-3" id="taskGrid">
-          <div class="choice" data-task="pushups">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6.5 6.5h11"/><path d="M8 6.5v11"/><path d="M16 6.5v11"/><path d="M3 12h3"/><path d="M18 12h3"/>
-            </svg>
-            10 отжиманий (камера)
-          </div>
-          <div class="choice" data-task="squats">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="5" r="2"/><path d="M10 22v-6l-2-3V9a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4l-2 3v6"/>
-            </svg>
-            10 приседаний (датчик)
-          </div>
           <div class="choice" data-task="math">
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h2"/><path d="M14 12h2"/><path d="M8 16h2"/><path d="M14 16h2"/>
             </svg>
             3 математических примера
           </div>
+          <div class="choice" data-task="memory">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Игра на память 3×3
+          </div>
+          <div class="choice" data-task="barcode">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>
+            </svg>
+            Сканер штрихкода
+          </div>
         </div>
+        <!-- Barcode reference setup -->
+        <div id="barcodeSetup" class="hidden" style="margin-top:14px;">
+          <div class="separator"></div>
+          <div class="toggle-label" style="margin-bottom:8px;">Эталонный код для отключения</div>
+          <div class="scanner-preview" id="barcodeSetupPreview"></div>
+          <div class="scanner-code" id="barcodeSetupCode">Код не задан</div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-secondary btn-sm" id="scanReferenceBtn" style="flex:1;">Сканировать</button>
+            <button class="btn btn-secondary btn-sm" id="resetBarcodeBtn" style="flex:1;color:var(--danger);">Сбросить код</button>
+          </div>
+          <div class="hint">Нужно будет отсканировать именно этот код, чтобы выключить будильник.</div>
+        </div>
+      </div>
+
+      <!-- Backup bot toggle (Premium) -->
+      <div class="card">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Страховка ботом</div>
+            <div class="toggle-sub">Бот позвонит, если приложение закроется</div>
+          </div>
+          <div class="toggle disabled" id="backupBotToggle" role="switch" aria-checked="false"></div>
+        </div>
+        <div class="hint">Premium. При изменении будильника отправляет время на сервер.</div>
       </div>
 
       <!-- Test button -->
@@ -500,12 +474,8 @@
           </div>
           <div class="toggle" id="nightModeToggle" role="switch" aria-checked="false"></div>
         </div>
-        <div class="hint">
-          Не блокируйте экран кнопкой. На iPhone OLED почти не тратит заряд, на Android лучше подключить зарядку
-        </div>
-        <div class="battery-warning" id="batteryWarning">
-          Заряд ниже 25%. Подключите iPhone к зарядке на ночь, чтобы будильник сработал.
-        </div>
+        <div class="hint">Не блокируйте экран кнопкой. На iPhone OLED почти не тратит заряд, на Android лучше подключить зарядку</div>
+        <div class="battery-warning" id="batteryWarning">Заряд ниже 25%. Подключите iPhone к зарядке на ночь, чтобы будильник сработал.</div>
       </div>
     </div>
   </div>
@@ -529,6 +499,20 @@
     <button class="btn btn-danger hidden" id="stopAlarmBtn" style="margin-top:8px;">Отключить будильник</button>
   </div>
 
+  <!-- Premium Modal -->
+  <div class="modal-overlay" id="premiumModal">
+    <div class="modal">
+      <h2 id="premiumModalTitle">Premium</h2>
+      <p id="premiumModalDesc">Разблокируйте все возможности умного будильника.</p>
+      <div id="premiumStatusBox" class="premium-status inactive">Premium не активен</div>
+      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>До 5 будильников с отдельными настройками</span></div>
+      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Своя мелодия из файла (MP3, M4A, WAV)</span></div>
+      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Страховка ботом — звонок, если приложение закрыто</span></div>
+      <div class="modal-buttons" id="premiumModalButtons"></div>
+      <button class="modal-close" id="premiumModalClose">Закрыть</button>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
@@ -546,35 +530,27 @@
     tg.setHeaderColor('#000000');
     tg.setBackgroundColor('#000000');
     if (typeof tg.setBottomBarColor === 'function') tg.setBottomBarColor('#000000');
-    if (typeof tg.disableVerticalSwipes === 'function') {
-      try { tg.disableVerticalSwipes(); } catch(e) {}
-    }
+    if (typeof tg.disableVerticalSwipes === 'function') { try { tg.disableVerticalSwipes(); } catch(e) {} }
     setTimeout(() => {
-      if (typeof tg.requestFullscreen === 'function') {
-        try { tg.requestFullscreen(); } catch(e) {}
-      }
+      if (typeof tg.requestFullscreen === 'function') { try { tg.requestFullscreen(); } catch(e) {} }
     }, 100);
     document.addEventListener('touchstart', () => {
-      if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) {
-        try { tg.requestFullscreen(); } catch(e) {}
-      }
+      if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) { try { tg.requestFullscreen(); } catch(e) {} }
     }, { once: true });
     if (typeof tg.onEvent === 'function') {
       tg.onEvent('viewportChanged', () => {
-        if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) {
-          try { tg.requestFullscreen(); } catch(e) {}
-        }
+        if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) { try { tg.requestFullscreen(); } catch(e) {} }
       });
     }
+
+    const WEBHOOK_URL = 'https://pbzflvaffgmlnhiesyfn.supabase.co/functions/v1/hyper-endpoint';
+    const TG_ID = tg.initDataUnsafe?.user?.id || null;
 
     // ==================== DOM REFERENCES ====================
     const clockDisplay = document.getElementById('clockDisplay');
     const dateDisplay = document.getElementById('dateDisplay');
     const countdownEl = document.getElementById('countdown');
-    const hourSelect = document.getElementById('hourSelect');
-    const minuteSelect = document.getElementById('minuteSelect');
     const toggleAlarmBtn = document.getElementById('toggleAlarmBtn');
-    const toggleAlarmText = document.getElementById('toggleAlarmText');
     const melodyGrid = document.getElementById('melodyGrid');
     const taskGrid = document.getElementById('taskGrid');
     const testBtn = document.getElementById('testBtn');
@@ -594,78 +570,80 @@
     const alarmAudio = document.getElementById('alarmAudio');
     const batteryWarning = document.getElementById('batteryWarning');
     const headerStatus = document.getElementById('headerStatus');
+    const alarmList = document.getElementById('alarmList');
+    const addAlarmBtn = document.getElementById('addAlarmBtn');
+    const premiumBanner = document.getElementById('premiumBanner');
+    const premiumBannerTitle = document.getElementById('premiumBannerTitle');
+    const premiumBannerSub = document.getElementById('premiumBannerSub');
+    const premiumModal = document.getElementById('premiumModal');
+    const premiumModalTitle = document.getElementById('premiumModalTitle');
+    const premiumModalDesc = document.getElementById('premiumModalDesc');
+    const premiumStatusBox = document.getElementById('premiumStatusBox');
+    const premiumModalButtons = document.getElementById('premiumModalButtons');
+    const premiumModalClose = document.getElementById('premiumModalClose');
+    const customMelodyRow = document.getElementById('customMelodyRow');
+    const customMelodyName = document.getElementById('customMelodyName');
+    const customMelodyLock = document.getElementById('customMelodyLock');
+    const customMelodyInput = document.getElementById('customMelodyInput');
+    const customMelodyHint = document.getElementById('customMelodyHint');
+    const barcodeSetup = document.getElementById('barcodeSetup');
+    const barcodeSetupPreview = document.getElementById('barcodeSetupPreview');
+    const barcodeSetupCode = document.getElementById('barcodeSetupCode');
+    const scanReferenceBtn = document.getElementById('scanReferenceBtn');
+    const resetBarcodeBtn = document.getElementById('resetBarcodeBtn');
+    const backupBotToggle = document.getElementById('backupBotToggle');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v6';
-    const RING_FLAG = 'smart_alarm_ringing_v6';
-    const REPS_TARGET = 10;
-    // Squat detection thresholds (magnitude of accelerationIncludingGravity)
-    const SQUAT_DOWN_THRESHOLD = 7.8;   // m/s² – weightless dip at bottom
-    const SQUAT_UP_THRESHOLD = 11.8;    // m/s² – push back up peak
-    const SQUAT_COOLDOWN_MS = 800;      // min time between reps
-    const PUSHUP_COOLDOWN_MS = 700;
+    const STORAGE_KEY = 'smart_alarm_state_v8';
+    const RING_FLAG = 'smart_alarm_ringing_v8';
+    const PREMIUM_KEY = 'smart_alarm_premium_v8';
+    const BARCODE_KEY = 'smart_alarm_barcode_v8';
+    const CUSTOM_MELODY_KEY = 'smart_alarm_custom_melody_v8';
 
     // ==================== STATE ====================
     const state = {
-      alarmEnabled: false,
-      alarmHour: 7,
-      alarmMinute: 0,
-      melody: 'field',
-      task: 'pushups',
+      alarms: [],
+      selectedAlarmId: null,
       nightMode: false,
       ringing: false,
+      ringingAlarmId: null,
       lastTriggeredMinute: null,
-      audioCtx: null,
-      silenceSource: null,
-      silenceAudio: null,
-      wakeLock: null,
-      wakeVideoStream: null,
-      // Task-specific
+      // audio
+      audioCtx: null, silenceSource: null, silenceAudio: null,
+      wakeLock: null, wakeVideoStream: null,
+      // tasks
       repCount: 0,
-      mathProblems: [],
-      mathIndex: 0,
-      mathCorrect: 0,
-      // Squats (motion)
-      motionActive: false,
-      motionHandler: null,
-      motionPhase: 'up',
-      lastRepTime: 0,
-      motionVisualCanvas: null,
-      motionValueEl: null,
-      squatScreenBuilt: false,
-      // Camera (pushups)
-      stream: null,
-      brightnessInterval: null,
-      brightnessCanvas: null,
-      brightnessCtx: null,
-      brightnessBaseline: null,
-      brightnessBaselineSamples: null,
-      brightnessPhase: 'up',
-      lastBrightnessRep: 0,
-      noSignalSince: 0,
-      lowLightTriggered: false,
-      lowLightBtnEl: null,
-      // Audio
-      audioWatchdog: null,
-      volumeRampInterval: null,
-      hapticInterval: null,
-      currentWavUrl: null,
-      // Pose status helper
-      poseStatusEl: null,
-      depthBarEl: null,
+      mathProblems: [], mathIndex: 0, mathCorrect: 0,
+      memorySequence: [], memoryIndex: 0, memoryAccepting: false, memoryTiles: [],
+      // squats
+      motionActive: false, motionHandler: null, motionPhase: 'up', lastRepTime: 0,
+      motionVisualCanvas: null, motionValueEl: null, poseStatusEl: null, depthBarEl: null,
+      // pushups
+      stream: null, brightnessInterval: null, brightnessCanvas: null, brightnessCtx: null,
+      brightnessBaseline: null, brightnessBaselineSamples: null, brightnessPhase: 'up', lastBrightnessRep: 0,
+      // audio playback
+      audioWatchdog: null, volumeRampInterval: null, hapticInterval: null, currentWavUrl: null,
+      // barcode scanner
+      scannerActive: false, html5QrCode: null, scanMode: null,
+      // custom melody
+      customMelodyBlob: null, customMelodyUrl: null,
+      // premium
+      premium: { trialEndsAt: null, subscription: false, cancelAt: null },
+      backupEnabled: false,
     };
 
     // ==================== PERSISTENCE ====================
     function saveState() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          alarmEnabled: state.alarmEnabled,
-          alarmHour: state.alarmHour,
-          alarmMinute: state.alarmMinute,
-          melody: state.melody,
-          task: state.task,
+          alarms: state.alarms.map(a => ({
+            id: a.id, hour: a.hour, minute: a.minute, enabled: a.enabled,
+            melody: a.melody, task: a.task, customMelody: a.customMelody || false,
+          })),
           nightMode: state.nightMode,
           ringing: state.ringing,
+          ringingAlarmId: state.ringingAlarmId,
+          backupEnabled: state.backupEnabled,
         }));
       } catch(e) {}
     }
@@ -676,56 +654,193 @@
       } catch(e) { return null; }
     }
 
-    // ==================== INITIALIZATION ====================
-    function populateSelectors() {
-      for (let i = 0; i < 24; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = String(i).padStart(2, '0');
-        hourSelect.appendChild(opt);
-      }
-      for (let i = 0; i < 60; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = String(i).padStart(2, '0');
-        minuteSelect.appendChild(opt);
-      }
+    function savePremium() {
+      try { localStorage.setItem(PREMIUM_KEY, JSON.stringify(state.premium)); } catch(e) {}
     }
-    populateSelectors();
+    function loadPremium() {
+      try {
+        const raw = localStorage.getItem(PREMIUM_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch(e) {}
+      return { trialEndsAt: null, subscription: false, cancelAt: null };
+    }
 
-    (function restoreState() {
+    function isPremium() {
+      const now = Date.now();
+      if (state.premium.subscription) return true;
+      if (state.premium.trialEndsAt && now < state.premium.trialEndsAt) return true;
+      return false;
+    }
+
+    function premiumLabel() {
+      const now = Date.now();
+      if (state.premium.subscription) {
+        if (state.premium.cancelAt) return 'Premium · автопродление отключено';
+        return 'Premium активен';
+      }
+      if (state.premium.trialEndsAt && now < state.premium.trialEndsAt) {
+        const daysLeft = Math.ceil((state.premium.trialEndsAt - now) / 86400000);
+        return `Пробный период · ${daysLeft} дн.`;
+      }
+      return 'Premium не активен';
+    }
+
+    function refreshPremiumUI() {
+      const premium = isPremium();
+      premiumBannerTitle.textContent = premium ? 'Premium активен' : 'Premium';
+      premiumBannerSub.textContent = premium ? premiumLabel() : '3 дня бесплатно';
+      backupBotToggle.classList.toggle('disabled', !premium);
+      customMelodyLock.style.display = premium ? 'none' : '';
+      customMelodyHint.textContent = premium
+        ? 'Нажмите, чтобы загрузить свой файл (MP3, M4A, WAV)'
+        : 'Premium: загрузите свой файл (MP3, M4A, WAV).';
+      updatePremiumModal();
+      renderAlarmList();
+    }
+
+    function activatePremium(days = 30) {
+      state.premium.subscription = true;
+      state.premium.trialEndsAt = null;
+      state.premium.cancelAt = null;
+      savePremium();
+      refreshPremiumUI();
+      showToast('Premium активирован!', 2500);
+    }
+
+    function startTrial() {
+      if (state.premium.trialEndsAt && state.premium.trialEndsAt > Date.now()) {
+        showToast('Пробный период уже активен'); return;
+      }
+      state.premium.trialEndsAt = Date.now() + 3 * 86400000;
+      state.premium.subscription = false;
+      savePremium();
+      refreshPremiumUI();
+      showToast('Пробный период на 3 дня активирован!', 3000);
+    }
+
+    // ==================== INIT ====================
+    (function initAlarms() {
       const saved = loadState();
-      if (saved) {
-        state.alarmEnabled = !!saved.alarmEnabled;
-        state.alarmHour = saved.alarmHour ?? 7;
-        state.alarmMinute = saved.alarmMinute ?? 0;
-        state.melody = saved.melody || 'field';
-        state.task = saved.task || 'pushups';
+      if (saved && Array.isArray(saved.alarms) && saved.alarms.length > 0) {
+        state.alarms = saved.alarms;
         state.nightMode = !!saved.nightMode;
-        hourSelect.value = state.alarmHour;
-        minuteSelect.value = state.alarmMinute;
+        state.backupEnabled = !!saved.backupEnabled;
+        state.ringing = !!saved.ringing;
+        state.ringingAlarmId = saved.ringingAlarmId || null;
       } else {
-        hourSelect.value = 7;
-        minuteSelect.value = 0;
+        state.alarms = [{
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          hour: 7, minute: 0, enabled: false, melody: 'field', task: 'math', customMelody: false,
+        }];
       }
-      document.querySelector(`[data-melody="${state.melody}"]`)?.classList.add('active');
-      document.querySelector(`[data-task="${state.task}"]`)?.classList.add('active');
-      if (state.alarmEnabled) {
-        toggleAlarmText.textContent = 'Выключить будильник';
-        toggleAlarmBtn.classList.remove('btn-primary');
-        toggleAlarmBtn.classList.add('btn-danger');
-        alarmBadge.classList.remove('hidden');
-        alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
-        headerStatus.textContent = 'ВКЛ';
-        headerStatus.style.color = 'var(--accent)';
+      state.premium = loadPremium();
+      if (saved && saved.backupEnabled) {
+        backupBotToggle.classList.add('on');
+        backupBotToggle.setAttribute('aria-checked', 'true');
       }
+      // Set initial selection
+      state.selectedAlarmId = state.alarms[0]?.id;
+      renderAlarmList();
+      restoreBarcodeUI();
+      refreshPremiumUI();
       if (state.nightMode) {
         nightModeToggle.classList.add('on');
         nightModeToggle.setAttribute('aria-checked', 'true');
         clockDisplay.classList.add('dim');
         nightOverlay.classList.add('active');
       }
+      if (state.ringing) {
+        setTimeout(() => { initAudioCtx(); triggerAlarm(true); }, 600);
+      }
     })();
+
+    // ==================== ALARM LIST ====================
+    function renderAlarmList() {
+      const premium = isPremium();
+      const maxFree = 1;
+      alarmList.innerHTML = '';
+      state.alarms.forEach((alarm, idx) => {
+        const el = document.createElement('div');
+        el.className = 'alarm-item';
+        const taskNames = { math: 'Математика', memory: 'Память', barcode: 'Штрихкод' };
+        const melodyNames = { field: 'Летнее поле', gentle: 'Аккуратная', classic: 'Обычная', bass: 'Звонкий бас', violin: 'Скрипка' };
+        const isLocked = !premium && idx >= maxFree;
+        el.innerHTML = `
+          <div class="alarm-item-info" data-id="${alarm.id}">
+            <div class="alarm-item-time">${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}</div>
+            <div class="alarm-item-meta">${alarm.customMelody ? 'Своя мелодия' : (melodyNames[alarm.melody] || alarm.melody)} · ${taskNames[alarm.task] || alarm.task}</div>
+          </div>
+          ${isLocked ? '<span class="lock-badge">🔒</span>' : ''}
+          <div class="toggle ${alarm.enabled && !isLocked ? 'on' : ''} ${isLocked ? 'disabled' : ''}" data-toggle="${alarm.id}" role="switch" aria-checked="${alarm.enabled && !isLocked}"></div>
+          <button class="alarm-delete" data-delete="${alarm.id}" ${isLocked ? 'disabled' : ''}>
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        `;
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('[data-toggle]')) { toggleAlarm(alarm.id); return; }
+          if (e.target.closest('[data-delete]')) { deleteAlarm(alarm.id); return; }
+          if (isLocked) { openPremiumModal(); return; }
+          selectAlarm(alarm.id);
+        });
+        alarmList.appendChild(el);
+      });
+      addAlarmBtn.disabled = !premium && state.alarms.length >= maxFree;
+      updateSelectedAlarmUI();
+    }
+
+    function selectAlarm(id) {
+      state.selectedAlarmId = id;
+      updateSelectedAlarmUI();
+    }
+
+    function updateSelectedAlarmUI() {
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+      if (!alarm) return;
+      document.querySelectorAll('#melodyGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.melody === alarm.melody && !alarm.customMelody));
+      document.querySelectorAll('#taskGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.task === alarm.task));
+      customMelodyRow.classList.toggle('active', !!alarm.customMelody);
+      customMelodyName.textContent = alarm.customMelody ? 'Своя мелодия ✓' : 'Своя мелодия';
+      barcodeSetup.classList.toggle('hidden', alarm.task !== 'barcode');
+    }
+
+    function toggleAlarm(id) {
+      const alarm = state.alarms.find(a => a.id === id);
+      if (!alarm) return;
+      if (!isPremium() && state.alarms.indexOf(alarm) > 0) { openPremiumModal(); return; }
+      alarm.enabled = !alarm.enabled;
+      haptic('medium');
+      renderAlarmList();
+      saveState();
+      syncBackupBot(alarm);
+    }
+
+    function deleteAlarm(id) {
+      if (state.alarms.length <= 1) { showToast('Нужен хотя бы один будильник'); return; }
+      state.alarms = state.alarms.filter(a => a.id !== id);
+      if (state.selectedAlarmId === id) state.selectedAlarmId = state.alarms[0]?.id;
+      haptic('selection');
+      renderAlarmList();
+      saveState();
+    }
+
+    function addAlarm() {
+      if (!isPremium() && state.alarms.length >= 1) { openPremiumModal(); return; }
+      if (isPremium() && state.alarms.length >= 5) { showToast('Максимум 5 будильников'); return; }
+      const alarm = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        hour: 7, minute: 0, enabled: false, melody: 'field', task: 'math', customMelody: false,
+      };
+      state.alarms.push(alarm);
+      state.selectedAlarmId = alarm.id;
+      haptic('selection');
+      renderAlarmList();
+      saveState();
+      syncBackupBot(alarm);
+    }
+
+    addAlarmBtn.addEventListener('click', addAlarm);
 
     // ==================== CLOCK + COUNTDOWN ====================
     function updateClock() {
@@ -734,37 +849,27 @@
       const m = String(now.getMinutes()).padStart(2, '0');
       const timeStr = `${h}:${m}`;
       if (state.nightMode && !state.ringing) {
-        clockDisplay.textContent = timeStr;
-        clockDisplay.classList.add('dim');
+        clockDisplay.textContent = timeStr; clockDisplay.classList.add('dim');
         nightClock.textContent = timeStr;
       } else {
-        clockDisplay.textContent = timeStr;
-        clockDisplay.classList.remove('dim');
+        clockDisplay.textContent = timeStr; clockDisplay.classList.remove('dim');
       }
-      const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-      const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+      const months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
       const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
       dateDisplay.textContent = dateStr;
       nightDate.textContent = dateStr;
       ringClock.textContent = timeStr;
-
       updateCountdown(now);
       checkAlarmTrigger(now);
     }
 
     function updateCountdown(now) {
-      if (state.ringing) {
-        countdownEl.textContent = 'Будильник звонит';
-        countdownEl.classList.remove('idle');
-        return;
-      }
-      if (!state.alarmEnabled) {
-        countdownEl.textContent = 'Будильник выключен';
-        countdownEl.classList.add('idle');
-        return;
-      }
+      if (state.ringing) { countdownEl.textContent = 'Будильник звонит'; countdownEl.classList.remove('idle'); return; }
+      const activeAlarm = state.alarms.find(a => a.enabled);
+      if (!activeAlarm) { countdownEl.textContent = 'Будильник выключен'; countdownEl.classList.add('idle'); return; }
       const target = new Date(now);
-      target.setHours(state.alarmHour, state.alarmMinute, 0, 0);
+      target.setHours(activeAlarm.hour, activeAlarm.minute, 0, 0);
       if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
       const diff = Math.max(0, target.getTime() - now.getTime());
       const totalMin = Math.floor(diff / 60000);
@@ -777,86 +882,65 @@
     }
 
     function checkAlarmTrigger(now) {
-      if (!state.alarmEnabled || state.ringing) return;
+      if (state.ringing) return;
       const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
-      if (now.getHours() === state.alarmHour && now.getMinutes() === state.alarmMinute) {
+      const alarm = state.alarms.find(a => a.enabled && a.hour === now.getHours() && a.minute === now.getMinutes());
+      if (alarm) {
         if (state.lastTriggeredMinute !== minuteKey) {
           state.lastTriggeredMinute = minuteKey;
+          state.ringingAlarmId = alarm.id;
           triggerAlarm();
         }
       } else if (state.lastTriggeredMinute === minuteKey) {
         state.lastTriggeredMinute = null;
+      }
+      updateAlarmBadge();
+    }
+
+    function updateAlarmBadge() {
+      const activeAlarms = state.alarms.filter(a => a.enabled);
+      if (activeAlarms.length > 0 && !state.ringing) {
+        alarmBadge.classList.remove('hidden');
+        alarmBadgeText.textContent = activeAlarms.length === 1
+          ? `Будильник на ${String(activeAlarms[0].hour).padStart(2,'0')}:${String(activeAlarms[0].minute).padStart(2,'0')}`
+          : `Активных будильников: ${activeAlarms.length}`;
+        headerStatus.textContent = 'ВКЛ'; headerStatus.style.color = 'var(--accent)';
+      } else {
+        alarmBadge.classList.add('hidden');
+        if (!state.ringing) { headerStatus.textContent = 'ВЫКЛ'; headerStatus.style.color = ''; }
       }
     }
 
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ==================== ANTI-CHEAT ====================
-    (function checkResumeRinging() {
-      const saved = loadState();
-      const urlRing = new URLSearchParams(window.location.search).get('ring') === '1';
-      if (urlRing || (saved && saved.ringing)) {
-        setTimeout(() => {
-          initAudioCtx();
-          triggerAlarm(true);
-        }, 600);
-      }
-    })();
-
     // ==================== AUDIO ====================
     function initAudioCtx() {
-      if (!state.audioCtx) {
-        try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-      }
+      if (!state.audioCtx) { try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
       if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
       return state.audioCtx;
     }
-
     function startSilentAudio() {
       stopSilentAudio();
-      const ctx = initAudioCtx();
-      if (!ctx) return;
+      const ctx = initAudioCtx(); if (!ctx) return;
       try {
         const bufferSize = ctx.sampleRate;
         const emptyBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const output = emptyBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) output[i] = 0;
-        const source = ctx.createBufferSource();
-        source.buffer = emptyBuffer;
-        source.loop = true;
-        const dest = ctx.createMediaStreamDestination();
-        source.connect(dest);
-        const audio = document.createElement('audio');
-        audio.style.display = 'none';
-        audio.srcObject = dest.stream;
-        document.body.appendChild(audio);
-        audio.play().catch(() => {});
-        state.silenceSource = source;
-        state.silenceAudio = audio;
-        source.start();
+        const output = emptyBuffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) output[i] = 0;
+        const source = ctx.createBufferSource(); source.buffer = emptyBuffer; source.loop = true;
+        const dest = ctx.createMediaStreamDestination(); source.connect(dest);
+        const audio = document.createElement('audio'); audio.style.display = 'none'; audio.srcObject = dest.stream;
+        document.body.appendChild(audio); audio.play().catch(() => {});
+        state.silenceSource = source; state.silenceAudio = audio; source.start();
       } catch(e) {}
     }
-
     function stopSilentAudio() {
-      if (state.silenceSource) {
-        try { state.silenceSource.stop(); } catch(e) {}
-        state.silenceSource = null;
-      }
-      if (state.silenceAudio) {
-        state.silenceAudio.pause();
-        state.silenceAudio.remove();
-        state.silenceAudio = null;
-      }
+      if (state.silenceSource) { try { state.silenceSource.stop(); } catch(e) {} state.silenceSource = null; }
+      if (state.silenceAudio) { state.silenceAudio.pause(); state.silenceAudio.remove(); state.silenceAudio = null; }
     }
-
     function ensureKeepAlive() {
-      if (state.alarmEnabled || state.nightMode) {
-        initAudioCtx();
-        startSilentAudio();
-      } else {
-        stopSilentAudio();
-      }
+      const anyEnabled = state.alarms.some(a => a.enabled) || state.ringing || state.nightMode;
+      if (anyEnabled) { initAudioCtx(); startSilentAudio(); } else stopSilentAudio();
     }
 
     // ==================== WAV RENDERER ====================
@@ -867,165 +951,107 @@
       else if (type === 'classic') cycleDuration = 12 * 0.35;
       else if (type === 'bass') cycleDuration = 8 * 0.8;
       else cycleDuration = 12.0;
-
       const sampleRate = 44100;
       const totalSamples = Math.ceil(cycleDuration * sampleRate);
       const offline = new OfflineAudioContext(1, totalSamples, sampleRate);
-      const masterGain = offline.createGain();
-      masterGain.gain.value = 0.8;
-      masterGain.connect(offline.destination);
-
+      const masterGain = offline.createGain(); masterGain.gain.value = 0.8; masterGain.connect(offline.destination);
       function tone(freq, tStart, dur, waveType, peakGain, attack, release, filterFreq, filterQ, lfoFreq, lfoDepth) {
-        const osc = offline.createOscillator();
-        const gain = offline.createGain();
-        osc.type = waveType;
-        osc.frequency.setValueAtTime(freq, tStart);
+        const osc = offline.createOscillator(); const gain = offline.createGain();
+        osc.type = waveType; osc.frequency.setValueAtTime(freq, tStart);
         let node = osc;
         if (filterFreq) {
-          const filter = offline.createBiquadFilter();
-          filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(filterFreq, tStart);
-          filter.Q.setValueAtTime(filterQ || 1, tStart);
-          osc.connect(filter);
-          node = filter;
+          const filter = offline.createBiquadFilter(); filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(filterFreq, tStart); filter.Q.setValueAtTime(filterQ || 1, tStart);
+          osc.connect(filter); node = filter;
         }
         if (lfoFreq) {
-          const lfo = offline.createOscillator();
-          const lfoGain = offline.createGain();
-          lfo.type = 'sine';
-          lfo.frequency.setValueAtTime(lfoFreq, tStart);
+          const lfo = offline.createOscillator(); const lfoGain = offline.createGain();
+          lfo.type = 'sine'; lfo.frequency.setValueAtTime(lfoFreq, tStart);
           lfoGain.gain.setValueAtTime(lfoDepth || 5, tStart);
-          lfo.connect(lfoGain);
-          lfoGain.connect(osc.frequency);
-          lfo.start(tStart);
-          lfo.stop(tStart + dur);
+          lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+          lfo.start(tStart); lfo.stop(tStart + dur);
         }
         gain.gain.setValueAtTime(0, tStart);
         gain.gain.linearRampToValueAtTime(peakGain, tStart + (attack || 0.01));
         gain.gain.setValueAtTime(peakGain, tStart + Math.max(attack || 0.01, dur - (release || 0.05)));
         gain.gain.linearRampToValueAtTime(0, tStart + dur);
-        node.connect(gain);
-        gain.connect(masterGain);
-        osc.start(tStart);
-        osc.stop(tStart + dur);
+        node.connect(gain); gain.connect(masterGain);
+        osc.start(tStart); osc.stop(tStart + dur);
       }
-
       if (type === 'field') {
-        const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 659.25,
-                       783.99, 1046.50, 1318.51, 1046.50, 783.99, 659.25, 523.25, 659.25];
+        const notes = [523.25,659.25,783.99,1046.50,783.99,659.25,523.25,659.25,783.99,1046.50,1318.51,1046.50,783.99,659.25,523.25,659.25];
         const dur = 0.22;
-        notes.forEach((f, i) => tone(f, i * dur, dur, 'sine', 0.7, 0.02, 0.05));
-        const shim = offline.createOscillator();
-        const shimGain = offline.createGain();
-        shim.type = 'sine';
-        shim.frequency.value = 2093;
-        shimGain.gain.setValueAtTime(0.03, 0);
-        shimGain.gain.linearRampToValueAtTime(0.03, cycleDuration - 0.1);
+        notes.forEach((f,i) => tone(f, i*dur, dur, 'sine', 0.7, 0.02, 0.05));
+        const shim = offline.createOscillator(); const shimGain = offline.createGain();
+        shim.type = 'sine'; shim.frequency.value = 2093;
+        shimGain.gain.setValueAtTime(0.03, 0); shimGain.gain.linearRampToValueAtTime(0.03, cycleDuration-0.1);
         shimGain.gain.linearRampToValueAtTime(0, cycleDuration);
-        shim.connect(shimGain);
-        shimGain.connect(masterGain);
-        shim.start(0);
-        shim.stop(cycleDuration);
+        shim.connect(shimGain); shimGain.connect(masterGain); shim.start(0); shim.stop(cycleDuration);
       } else if (type === 'gentle') {
-        const notes = [392.00, 440.00, 493.88, 523.25, 493.88, 440.00, 392.00, 349.23, 392.00, 440.00, 493.88, 523.25];
+        const notes = [392.00,440.00,493.88,523.25,493.88,440.00,392.00,349.23,392.00,440.00,493.88,523.25];
         const dur = 0.6;
-        notes.forEach((f, i) => tone(f, i * dur, dur, 'triangle', 0.4, 0.1, 0.15));
+        notes.forEach((f,i) => tone(f, i*dur, dur, 'triangle', 0.4, 0.1, 0.15));
       } else if (type === 'classic') {
-        const freqs = [880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100];
+        const freqs = [880,1100,880,1100,880,1100,880,1100,880,1100,880,1100];
         const dur = 0.35;
-        freqs.forEach((f, i) => tone(f, i * dur, dur, 'square', 0.22, 0.01, 0.05));
+        freqs.forEach((f,i) => tone(f, i*dur, dur, 'square', 0.22, 0.01, 0.05));
       } else if (type === 'bass') {
-        const baseFreq = 80;
-        const step = 0.8;
+        const baseFreq = 80, step = 0.8;
         for (let i = 0; i < 8; i++) {
-          const t = i * step;
-          const osc = offline.createOscillator();
-          const gain = offline.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(baseFreq, t);
-          osc.frequency.linearRampToValueAtTime(baseFreq * 2.5, t + 0.4);
-          osc.frequency.linearRampToValueAtTime(baseFreq, t + step);
+          const t = i*step;
+          const osc = offline.createOscillator(); const gain = offline.createGain();
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(baseFreq, t);
+          osc.frequency.linearRampToValueAtTime(baseFreq*2.5, t+0.4);
+          osc.frequency.linearRampToValueAtTime(baseFreq, t+step);
           gain.gain.setValueAtTime(0, t);
-          gain.gain.linearRampToValueAtTime(0.28, t + 0.05);
-          gain.gain.setValueAtTime(0.28, t + step - 0.1);
-          gain.gain.linearRampToValueAtTime(0, t + step);
-          osc.connect(gain);
-          gain.connect(masterGain);
-          osc.start(t);
-          osc.stop(t + step);
+          gain.gain.linearRampToValueAtTime(0.28, t+0.05);
+          gain.gain.setValueAtTime(0.28, t+step-0.1);
+          gain.gain.linearRampToValueAtTime(0, t+step);
+          osc.connect(gain); gain.connect(masterGain); osc.start(t); osc.stop(t+step);
         }
-        const sub = offline.createOscillator();
-        const subGain = offline.createGain();
-        sub.type = 'sine';
-        sub.frequency.value = 50;
-        subGain.gain.setValueAtTime(0, 0);
-        subGain.gain.linearRampToValueAtTime(0.18, 0.1);
-        subGain.gain.setValueAtTime(0.18, cycleDuration - 0.1);
+        const sub = offline.createOscillator(); const subGain = offline.createGain();
+        sub.type = 'sine'; sub.frequency.value = 50;
+        subGain.gain.setValueAtTime(0, 0); subGain.gain.linearRampToValueAtTime(0.18, 0.1);
+        subGain.gain.setValueAtTime(0.18, cycleDuration-0.1);
         subGain.gain.linearRampToValueAtTime(0, cycleDuration);
-        sub.connect(subGain);
-        subGain.connect(masterGain);
-        sub.start(0);
-        sub.stop(cycleDuration);
+        sub.connect(subGain); subGain.connect(masterGain); sub.start(0); sub.stop(cycleDuration);
       } else if (type === 'violin') {
         const melody = [
-          { freq: 523.25, dur: 0.8 }, { freq: 587.33, dur: 0.8 }, { freq: 659.25, dur: 1.0 },
-          { freq: 587.33, dur: 0.6 }, { freq: 523.25, dur: 1.2 }, { freq: 440.00, dur: 0.8 },
-          { freq: 493.88, dur: 0.8 }, { freq: 523.25, dur: 1.2 }, { freq: 659.25, dur: 1.0 },
-          { freq: 783.99, dur: 1.4 }, { freq: 659.25, dur: 0.8 }, { freq: 523.25, dur: 1.6 },
+          {freq:523.25,dur:0.8},{freq:587.33,dur:0.8},{freq:659.25,dur:1.0},
+          {freq:587.33,dur:0.6},{freq:523.25,dur:1.2},{freq:440.00,dur:0.8},
+          {freq:493.88,dur:0.8},{freq:523.25,dur:1.2},{freq:659.25,dur:1.0},
+          {freq:783.99,dur:1.4},{freq:659.25,dur:0.8},{freq:523.25,dur:1.6},
         ];
         let t = 0;
-        melody.forEach(({ freq, dur }) => {
-          tone(freq, t, dur, 'sawtooth', 0.32, 0.08, 0.1, 1800, 2, 5.5, 6);
-          t += dur;
-        });
+        melody.forEach(({freq,dur}) => { tone(freq, t, dur, 'sawtooth', 0.32, 0.08, 0.1, 1800, 2, 5.5, 6); t += dur; });
       }
-
       const rendered = await offline.startRendering();
       const wav = audioBufferToWav(rendered);
       return new Blob([wav], { type: 'audio/wav' });
     }
 
     function audioBufferToWav(buffer) {
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
-      const samples = buffer.length;
-      const bytesPerSample = 2;
-      const blockAlign = numChannels * bytesPerSample;
-      const dataSize = samples * blockAlign;
+      const numChannels = buffer.numberOfChannels, sampleRate = buffer.sampleRate, samples = buffer.length;
+      const bytesPerSample = 2, blockAlign = numChannels * bytesPerSample, dataSize = samples * blockAlign;
       const bufferSize = 44 + dataSize;
-      const arrayBuffer = new ArrayBuffer(bufferSize);
-      const view = new DataView(arrayBuffer);
-      function writeString(offset, str) {
-        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-      }
-      writeString(0, 'RIFF');
-      view.setUint32(4, 36 + dataSize, true);
-      writeString(8, 'WAVE');
-      writeString(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, numChannels, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * blockAlign, true);
-      view.setUint16(32, blockAlign, true);
-      view.setUint16(34, 16, true);
-      writeString(36, 'data');
-      view.setUint32(40, dataSize, true);
-
+      const arrayBuffer = new ArrayBuffer(bufferSize); const view = new DataView(arrayBuffer);
+      function writeString(offset, str) { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); }
+      writeString(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeString(8, 'WAVE');
+      writeString(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true); view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * blockAlign, true); view.setUint16(32, blockAlign, true);
+      view.setUint16(34, 16, true); writeString(36, 'data'); view.setUint32(40, dataSize, true);
       let offset = 44;
       if (numChannels === 1) {
         const ch = buffer.getChannelData(0);
         for (let i = 0; i < samples; i++) {
           const s = Math.max(-1, Math.min(1, ch[i]));
-          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-          offset += 2;
+          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true); offset += 2;
         }
       } else {
-        const chL = buffer.getChannelData(0);
-        const chR = buffer.getChannelData(1);
+        const chL = buffer.getChannelData(0), chR = buffer.getChannelData(1);
         for (let i = 0; i < samples; i++) {
-          const l = Math.max(-1, Math.min(1, chL[i]));
-          const r = Math.max(-1, Math.min(1, chR[i]));
+          const l = Math.max(-1, Math.min(1, chL[i])), r = Math.max(-1, Math.min(1, chR[i]));
           view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7FFF, true); offset += 2;
           view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7FFF, true); offset += 2;
         }
@@ -1033,42 +1059,32 @@
       return arrayBuffer;
     }
 
-    // ==================== VOLUME RAMP ====================
+    // ==================== VOLUME RAMP & WAV PLAYBACK ====================
     function startVolumeRamp() {
       stopVolumeRamp();
       alarmAudio.volume = 0.15;
-      const startVol = 0.15, targetVol = 1.0, duration = 25000;
-      const startTime = Date.now();
+      const startVol = 0.15, targetVol = 1.0, duration = 25000, startTime = Date.now();
       state.volumeRampInterval = setInterval(() => {
         if (!state.ringing) { stopVolumeRamp(); return; }
         const elapsed = Date.now() - startTime;
         const progress = Math.min(1, elapsed / duration);
-        const eased = progress < 0.5
-          ? 2 * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        const eased = progress < 0.5 ? 2*progress*progress : 1 - Math.pow(-2*progress+2, 2)/2;
         alarmAudio.volume = startVol + (targetVol - startVol) * eased;
         if (progress >= 1) stopVolumeRamp();
       }, 200);
     }
     function stopVolumeRamp() {
-      if (state.volumeRampInterval) {
-        clearInterval(state.volumeRampInterval);
-        state.volumeRampInterval = null;
-      }
+      if (state.volumeRampInterval) { clearInterval(state.volumeRampInterval); state.volumeRampInterval = null; }
     }
 
-    // ==================== WAV PLAYBACK ====================
     async function startWavAlarm(type) {
       stopWavAlarm();
       try {
         const blob = await renderMelodyToWav(type);
         if (state.currentWavUrl) URL.revokeObjectURL(state.currentWavUrl);
         state.currentWavUrl = URL.createObjectURL(blob);
-        alarmAudio.src = state.currentWavUrl;
-        alarmAudio.loop = true;
-        alarmAudio.playsInline = true;
-        alarmAudio.muted = false;
-        alarmAudio.volume = 0.15;
+        alarmAudio.src = state.currentWavUrl; alarmAudio.loop = true; alarmAudio.playsInline = true;
+        alarmAudio.muted = false; alarmAudio.volume = 0.15;
         try { await alarmAudio.play(); } catch(e) {}
         startVolumeRamp();
         if (state.audioWatchdog) clearInterval(state.audioWatchdog);
@@ -1078,41 +1094,27 @@
         }, 500);
       } catch(e) {}
     }
-
     function stopWavAlarm() {
-      if (state.audioWatchdog) {
-        clearInterval(state.audioWatchdog);
-        state.audioWatchdog = null;
-      }
+      if (state.audioWatchdog) { clearInterval(state.audioWatchdog); state.audioWatchdog = null; }
       stopVolumeRamp();
       try { alarmAudio.pause(); } catch(e) {}
       alarmAudio.removeAttribute('src');
       try { alarmAudio.load(); } catch(e) {}
-      if (state.currentWavUrl) {
-        URL.revokeObjectURL(state.currentWavUrl);
-        state.currentWavUrl = null;
-      }
+      if (state.currentWavUrl) { URL.revokeObjectURL(state.currentWavUrl); state.currentWavUrl = null; }
     }
-
     async function previewMelody(type) {
       stopWavAlarm();
       try {
         const blob = await renderMelodyToWav(type);
         const url = URL.createObjectURL(blob);
-        alarmAudio.src = url;
-        alarmAudio.loop = false;
-        alarmAudio.volume = 0.5;
-        alarmAudio.currentTime = 0;
+        alarmAudio.src = url; alarmAudio.loop = false; alarmAudio.volume = 0.5; alarmAudio.currentTime = 0;
         try { await alarmAudio.play(); } catch(e) {}
-        const cleanup = () => {
-          URL.revokeObjectURL(url);
-          alarmAudio.removeEventListener('ended', cleanup);
-        };
+        const cleanup = () => { URL.revokeObjectURL(url); alarmAudio.removeEventListener('ended', cleanup); };
         alarmAudio.addEventListener('ended', cleanup);
       } catch(e) {}
     }
 
-    // ==================== HAPTIC ====================
+    // ==================== HAPTIC & TOAST ====================
     function haptic(type = 'medium') {
       if (tg?.HapticFeedback) {
         try {
@@ -1125,12 +1127,9 @@
         } catch(e) {}
       }
     }
-
-    // ==================== TOAST ====================
     let toastTimeout;
     function showToast(msg, duration = 2500) {
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
+      toastEl.textContent = msg; toastEl.classList.add('show');
       clearTimeout(toastTimeout);
       toastTimeout = setTimeout(() => toastEl.classList.remove('show'), duration);
     }
@@ -1154,440 +1153,188 @@
 
     // ==================== UI: MELODY & TASK ====================
     melodyGrid.addEventListener('click', (e) => {
-      const el = e.target.closest('.choice');
-      if (!el) return;
+      const el = e.target.closest('.choice'); if (!el) return;
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId); if (!alarm) return;
       const melody = el.dataset.melody;
-      if (!melody || melody === state.melody) {
-        if (melody === state.melody) haptic('selection');
-        return;
-      }
-      state.melody = melody;
-      melodyGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      haptic('selection');
-      saveState();
-      previewMelody(melody);
+      if (!melody) return;
+      alarm.melody = melody; alarm.customMelody = false;
+      state.customMelodyUrl = null;
+      haptic('selection'); updateSelectedAlarmUI(); saveState(); previewMelody(melody);
+      syncBackupBot(alarm);
     });
 
     taskGrid.addEventListener('click', (e) => {
-      const el = e.target.closest('.choice');
-      if (!el) return;
-      const task = el.dataset.task;
-      if (!task || task === state.task) {
-        if (task === state.task) haptic('selection');
-        return;
-      }
-      state.task = task;
-      taskGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      haptic('selection');
-      saveState();
+      const el = e.target.closest('.choice'); if (!el) return;
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId); if (!alarm) return;
+      const task = el.dataset.task; if (!task) return;
+      alarm.task = task;
+      haptic('selection'); updateSelectedAlarmUI(); saveState();
+      barcodeSetup.classList.toggle('hidden', task !== 'barcode');
+      syncBackupBot(alarm);
     });
 
-    // ==================== ALARM TOGGLE ====================
-    toggleAlarmBtn.addEventListener('click', async () => {
-      initAudioCtx();
-      haptic('medium');
-      if (state.alarmEnabled) {
-        state.alarmEnabled = false;
-        state.lastTriggeredMinute = null;
-        toggleAlarmText.textContent = 'Включить будильник';
-        toggleAlarmBtn.classList.remove('btn-danger');
-        toggleAlarmBtn.classList.add('btn-primary');
-        alarmBadge.classList.add('hidden');
-        headerStatus.textContent = 'ВЫКЛ';
-        headerStatus.style.color = '';
-        ensureKeepAlive();
-        saveState();
-        showToast('Будильник выключен');
-      } else {
-        state.alarmHour = parseInt(hourSelect.value);
-        state.alarmMinute = parseInt(minuteSelect.value);
-        state.alarmEnabled = true;
-        state.lastTriggeredMinute = null;
-        toggleAlarmText.textContent = 'Выключить будильник';
-        toggleAlarmBtn.classList.remove('btn-primary');
-        toggleAlarmBtn.classList.add('btn-danger');
-        alarmBadge.classList.remove('hidden');
-        alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
-        headerStatus.textContent = 'ВКЛ';
-        headerStatus.style.color = 'var(--accent)';
-        ensureKeepAlive();
-        saveState();
-        showToast(`Будильник включён на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`);
-      }
+    // ==================== CUSTOM MELODY ====================
+    customMelodyRow.addEventListener('click', () => {
+      if (!isPremium()) { openPremiumModal(); return; }
+      customMelodyInput.click();
     });
 
-    // ==================== TEST ====================
-    testBtn.addEventListener('click', async () => {
-      initAudioCtx();
-      haptic('medium');
-      triggerAlarm(true);
-    });
-
-    // ==================== NIGHT MODE ====================
-    nightModeToggle.addEventListener('click', async () => {
-      initAudioCtx();
-      haptic('selection');
-      if (state.nightMode) exitNightMode();
-      else enterNightMode();
-    });
-
-    async function enterNightMode() {
-      state.nightMode = true;
-      nightModeToggle.classList.add('on');
-      nightModeToggle.setAttribute('aria-checked', 'true');
-      nightOverlay.classList.add('active');
-      clockDisplay.classList.add('dim');
-      await requestWakeLock();
-      startWakeVideo();
-      ensureKeepAlive();
-      saveState();
-      showToast('Ночной режим включён');
-    }
-
-    function exitNightMode() {
-      state.nightMode = false;
-      nightModeToggle.classList.remove('on');
-      nightModeToggle.setAttribute('aria-checked', 'false');
-      nightOverlay.classList.remove('active');
-      clockDisplay.classList.remove('dim');
-      releaseWakeLock();
-      stopWakeVideo();
-      ensureKeepAlive();
-      saveState();
-      showToast('Ночной режим выключен');
-    }
-
-    nightExitBtn.addEventListener('click', () => {
-      if (state.ringing) return;
-      exitNightMode();
-    });
-
-    // ==================== WAKE LOCK ====================
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          state.wakeLock = await navigator.wakeLock.request('screen');
-          state.wakeLock.addEventListener('release', () => {});
-        } catch(e) {}
-      }
-    }
-    function releaseWakeLock() {
-      if (state.wakeLock) { state.wakeLock.release(); state.wakeLock = null; }
-    }
-    function startWakeVideo() {
-      if (state.wakeVideoStream) return;
+    customMelodyInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0]; if (!file) return;
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1; canvas.height = 1;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1);
-        state.wakeVideoStream = canvas.captureStream(1);
-        wakeVideo.srcObject = state.wakeVideoStream;
-        wakeVideo.play().catch(() => {});
+        const blob = file.slice(0, file.size, file.type);
+        state.customMelodyBlob = blob;
+        if (state.customMelodyUrl) URL.revokeObjectURL(state.customMelodyUrl);
+        state.customMelodyUrl = URL.createObjectURL(blob);
+        const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+        if (alarm) { alarm.customMelody = true; }
+        await saveCustomMelodyToDB(blob, file.name);
+        customMelodyName.textContent = 'Своя мелодия ✓';
+        haptic('success'); showToast('Мелодия сохранена'); updateSelectedAlarmUI(); saveState();
+      } catch(err) { showToast('Не удалось загрузить файл'); }
+      customMelodyInput.value = '';
+    });
+
+    // IndexedDB for custom melody
+    function openMelodyDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('smart_alarm_melody_db', 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore('melodies', { keyPath: 'id' }); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function saveCustomMelodyToDB(blob, name) {
+      try {
+        const db = await openMelodyDB();
+        const tx = db.transaction('melodies', 'readwrite');
+        tx.objectStore('melodies').put({ id: 'custom', blob, name, updated: Date.now() });
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
       } catch(e) {}
     }
-    function stopWakeVideo() {
-      if (state.wakeVideoStream) {
-        state.wakeVideoStream.getTracks().forEach(t => t.stop());
-        state.wakeVideoStream = null;
-      }
-      wakeVideo.pause();
-      wakeVideo.srcObject = null;
-    }
-
-    // ==================== SQUATS: SCREEN + PERMISSION ON CLICK ====================
-    // Shows a screen with a "Начать приседания" button. DeviceMotion permission
-    // is requested ONLY inside that button's click handler (required on iOS 13+).
-    function showSquatScreen() {
-      state.repCount = 0;
-      state.motionPhase = 'up';
-      state.lastRepTime = 0;
-      state.squatScreenBuilt = true;
-
-      taskArea.innerHTML = `
-        <div class="task-title">Возьмите iPhone в руку и сделайте 10 приседаний</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
-        <div class="motion-visual"><canvas id="motionCanvas"></canvas></div>
-        <div class="motion-value" id="motionValue">Ожидание запуска…</div>
-        <div class="pose-status" id="poseStatus">Нажмите «Начать приседания»</div>
-        <button class="btn btn-primary motion-start-btn" id="startSquatBtn">Начать приседания</button>
-        <button class="fallback-link" id="squatFallbackBtn">Датчик не сработал? Переключиться на примеры</button>
-      `;
-
-      state.motionVisualCanvas = document.getElementById('motionCanvas');
-      state.motionValueEl = document.getElementById('motionValue');
-      state.poseStatusEl = document.getElementById('poseStatus');
-      state.depthBarEl = null;
-
-      // Prepare the live graph canvas
-      const cv = state.motionVisualCanvas;
-      const ctx2d = cv.getContext('2d');
-      cv.width = cv.clientWidth * (window.devicePixelRatio || 1);
-      cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
-      const history = new Array(120).fill(9.8);
-      state.motionHistory = history;
-      state.motionGraphCtx = ctx2d;
-
-      document.getElementById('startSquatBtn').addEventListener('click', onStartSquatClick);
-      document.getElementById('squatFallbackBtn').addEventListener('click', () => {
-        haptic('selection');
-        setupMathTask(5);
-      });
-    }
-
-    async function onStartSquatClick() {
-      const btn = document.getElementById('startSquatBtn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Запрос разрешения…'; }
-
-      // iOS 13+ requires explicit permission INSIDE a user gesture.
-      if (typeof DeviceMotionEvent !== 'undefined' &&
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-          const perm = await DeviceMotionEvent.requestPermission();
-          if (perm !== 'granted') {
-            showToast('Разрешение на датчик не выдано.');
-            if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
-            return;
-          }
-        } catch (err) {
-          showToast('Ошибка запроса датчика. Можно переключиться на примеры ниже.');
-          if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
-          return;
-        }
-      }
-
-      // Android / browsers without permission gate: start immediately.
-      startMotionListener();
-
-      if (btn) {
-        btn.textContent = 'Приседания начались…';
-        btn.disabled = true;
-      }
-      if (state.poseStatusEl) state.poseStatusEl.textContent = 'Держите телефон в руке и приседайте';
-      haptic('success');
-    }
-
-    function startMotionListener() {
-      if (state.motionActive) return;
-      state.motionActive = true;
-      state.motionPhase = 'up';
-      state.lastRepTime = 0;
-
-      state.motionHandler = (event) => {
-        if (!state.motionActive || !state.ringing) return;
-        const acc = event.accelerationIncludingGravity;
-        if (!acc) return;
-        const x = acc.x || 0, y = acc.y || 0, z = acc.z || 0;
-        // Magnitude of total acceleration ~9.8 m/s² at rest.
-        const magnitude = Math.sqrt(x*x + y*y + z*z);
-
-        // Update live graph
-        const hist = state.motionHistory;
-        const cv = state.motionVisualCanvas;
-        const ctx2d = state.motionGraphCtx;
-        if (hist && cv && ctx2d) {
-          hist.push(magnitude);
-          hist.shift();
-          const w = cv.width, h = cv.height;
-          ctx2d.clearRect(0, 0, w, h);
-          // Draw baseline 9.8
-          const yMid = h - ((9.8 / 16) * h);
-          ctx2d.strokeStyle = 'rgba(255,255,255,0.12)';
-          ctx2d.lineWidth = 1;
-          ctx2d.beginPath();
-          ctx2d.moveTo(0, yMid);
-          ctx2d.lineTo(w, yMid);
-          ctx2d.stroke();
-          // Down threshold
-          const yDown = h - ((SQUAT_DOWN_THRESHOLD / 16) * h);
-          ctx2d.strokeStyle = 'rgba(255,159,10,0.5)';
-          ctx2d.setLineDash([4, 4]);
-          ctx2d.beginPath(); ctx2d.moveTo(0, yDown); ctx2d.lineTo(w, yDown); ctx2d.stroke();
-          ctx2d.setLineDash([]);
-          // Up threshold
-          const yUp = h - ((SQUAT_UP_THRESHOLD / 16) * h);
-          ctx2d.strokeStyle = 'rgba(48,209,88,0.45)';
-          ctx2d.beginPath(); ctx2d.moveTo(0, yUp); ctx2d.lineTo(w, yUp); ctx2d.stroke();
-          // Trace
-          ctx2d.strokeStyle = 'rgba(255,159,10,0.95)';
-          ctx2d.lineWidth = 2 * (window.devicePixelRatio || 1);
-          ctx2d.beginPath();
-          for (let i = 0; i < hist.length; i++) {
-            const xPos = (i / (hist.length - 1)) * w;
-            const yPos = h - ((hist[i] / 16) * h);
-            if (i === 0) ctx2d.moveTo(xPos, yPos);
-            else ctx2d.lineTo(xPos, yPos);
-          }
-          ctx2d.stroke();
-        }
-
-        if (state.motionValueEl) {
-          state.motionValueEl.textContent = `|a| = ${magnitude.toFixed(2)} м/с²`;
-        }
-
-        const now = Date.now();
-        const cooldownOK = (now - state.lastRepTime) > SQUAT_COOLDOWN_MS;
-
-        if (state.motionPhase === 'up' && magnitude < SQUAT_DOWN_THRESHOLD && cooldownOK) {
-          state.motionPhase = 'down';
-          if (state.poseStatusEl) state.poseStatusEl.textContent = 'Отлично, теперь вверх!';
-          haptic('selection');
-        } else if (state.motionPhase === 'down' && magnitude > SQUAT_UP_THRESHOLD) {
-          state.motionPhase = 'up';
-          state.lastRepTime = now;
-          state.repCount++;
-          const repEl = document.getElementById('repCounter');
-          if (repEl) repEl.textContent = state.repCount;
-          if (state.poseStatusEl) state.poseStatusEl.textContent = `Повторение ${state.repCount} из ${REPS_TARGET}`;
-          haptic('medium');
-          if (state.repCount >= REPS_TARGET) completeTask();
-        }
-      };
-
-      window.addEventListener('devicemotion', state.motionHandler, true);
-    }
-
-    function stopSquatDetector() {
-      state.motionActive = false;
-      if (state.motionHandler) {
-        window.removeEventListener('devicemotion', state.motionHandler, true);
-        state.motionHandler = null;
-      }
-    }
-
-    // ==================== PUSH-UPS: BRIGHTNESS PROXIMITY ====================
-    async function startPushupDetector() {
+    async function loadCustomMelodyFromDB() {
       try {
-        state.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: 320, height: 240 }, audio: false
-        });
+        const db = await openMelodyDB();
+        const tx = db.transaction('melodies', 'readonly');
+        const req = tx.objectStore('melodies').get('custom');
+        return await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = rej; });
+      } catch(e) { return null; }
+    }
+
+    // Load custom melody on startup
+    (async () => {
+      const saved = await loadCustomMelodyFromDB();
+      if (saved && saved.blob) {
+        state.customMelodyBlob = saved.blob;
+        if (state.customMelodyUrl) URL.revokeObjectURL(state.customMelodyUrl);
+        state.customMelodyUrl = URL.createObjectURL(saved.blob);
+      }
+    })();
+
+    // ==================== BARCODE SCANNER ====================
+    const BARCODE_REF_KEY = BARCODE_KEY;
+
+    function getBarcodeRef() {
+      try { return localStorage.getItem(BARCODE_REF_KEY); } catch(e) { return null; }
+    }
+    function setBarcodeRef(code) {
+      try { if (code) localStorage.setItem(BARCODE_REF_KEY, code); else localStorage.removeItem(BARCODE_REF_KEY); } catch(e) {}
+    }
+    function restoreBarcodeUI() {
+      const ref = getBarcodeRef();
+      barcodeSetupCode.textContent = ref || 'Код не задан';
+    }
+
+    async function startBarcodeScanner(container, mode, onResult) {
+      stopBarcodeScanner();
+      state.scanMode = mode;
+      container.innerHTML = '<div id="qrReader"></div>';
+
+      // Try native BarcodeDetector
+      if ('BarcodeDetector' in window) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          const video = document.createElement('video');
+          video.srcObject = stream; video.setAttribute('playsinline', 'true'); video.muted = true;
+          video.style.width = '100%'; video.style.height = '100%'; video.style.objectFit = 'cover';
+          container.innerHTML = '';
+          container.appendChild(video);
+          video.play();
+          const detector = new BarcodeDetector();
+          state.scannerActive = true;
+          const scan = async () => {
+            if (!state.scannerActive) return;
+            if (video.readyState >= 2) {
+              try {
+                const barcodes = await detector.detect(video);
+                if (barcodes.length > 0) {
+                  const code = barcodes[0].rawValue;
+                  stopBarcodeScanner();
+                  onResult(code);
+                  return;
+                }
+              } catch(e) {}
+            }
+            requestAnimationFrame(scan);
+          };
+          scan();
+          return;
+        } catch(e) {}
+      }
+
+      // Fallback: html5-qrcode
+      try {
+        if (typeof Html5Qrcode === 'undefined') {
+          showToast('Сканер недоступен'); return;
+        }
+        container.innerHTML = '<div id="qrReader"></div>';
+        state.html5QrCode = new Html5Qrcode('qrReader');
+        await state.html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: 250 },
+          (decodedText) => {
+            stopBarcodeScanner();
+            onResult(decodedText);
+          },
+          () => {}
+        );
       } catch(e) {
-        showToast('Камера недоступна. Переключитесь на примеры ниже.');
-        buildPushupFallbackScreen();
-        return false;
+        showToast('Не удалось запустить камеру');
       }
-
-      state.repCount = 0;
-      state.brightnessPhase = 'up';
-      state.lastBrightnessRep = 0;
-      state.brightnessBaseline = null;
-      state.brightnessBaselineSamples = null;
-
-      taskArea.innerHTML = `
-        <div class="task-title">Положите телефон на пол лицом вверх под грудь и сделайте 10 отжиманий</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
-        <div class="video-preview" id="videoPreview">
-          <canvas class="overlay" id="overlayCanvas"></canvas>
-        </div>
-        <div class="pose-status" id="poseStatus">Калибровка…</div>
-        <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
-        <button class="fallback-link" id="pushupFallbackBtn">Камера не видит? Переключиться на примеры</button>
-      `;
-      const preview = document.getElementById('videoPreview');
-      const video = document.createElement('video');
-      video.autoplay = true;
-      video.playsInline = true;
-      video.muted = true;
-      video.srcObject = state.stream;
-      preview.insertBefore(video, preview.firstChild);
-
-      const bCanvas = document.createElement('canvas');
-      bCanvas.width = 64;
-      bCanvas.height = 64;
-      state.brightnessCanvas = bCanvas;
-      state.brightnessCtx = bCanvas.getContext('2d', { willReadFrequently: true });
-
-      document.getElementById('pushupFallbackBtn').addEventListener('click', () => {
-        haptic('selection');
-        stopPushupDetector();
-        setupMathTask(5);
-      });
-
-      state.depthBarEl = document.getElementById('depthBar');
-      state.poseStatusEl = document.getElementById('poseStatus');
-
-      state.brightnessInterval = setInterval(() => {
-        if (!state.ringing) return;
-        if (video.readyState < 2) return;
-        const bctx = state.brightnessCtx;
-        bctx.drawImage(video, 0, 0, 64, 64);
-        const data = bctx.getImageData(16, 16, 32, 32).data;
-        let sum = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          sum += (data[i] + data[i+1] + data[i+2]) / 3;
-        }
-        const avg = sum / (data.length / 4);
-
-        if (state.brightnessBaseline === null) {
-          if (!state.brightnessBaselineSamples) state.brightnessBaselineSamples = [];
-          state.brightnessBaselineSamples.push(avg);
-          if (state.brightnessBaselineSamples.length >= 30) {
-            const sorted = state.brightnessBaselineSamples.slice().sort((a,b) => a-b);
-            state.brightnessBaseline = sorted[Math.floor(sorted.length / 2)];
-            if (state.poseStatusEl) state.poseStatusEl.textContent = 'Готово. Опускайтесь к телефону!';
-          } else {
-            if (state.poseStatusEl) state.poseStatusEl.textContent = 'Калибровка…';
-            return;
-          }
-        }
-
-        const base = state.brightnessBaseline;
-        const dropThreshold = base * 0.55;
-        const returnThreshold = base * 0.82;
-
-        const depth = Math.max(0, Math.min(100, ((base - avg) / base) * 100));
-        if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
-
-        const now = Date.now();
-        const cooldownOK = (now - state.lastBrightnessRep) > PUSHUP_COOLDOWN_MS;
-
-        if (state.brightnessPhase === 'up' && avg < dropThreshold && cooldownOK) {
-          state.brightnessPhase = 'down';
-          if (state.poseStatusEl) state.poseStatusEl.textContent = 'Отлично, теперь вверх!';
-          haptic('selection');
-        } else if (state.brightnessPhase === 'down' && avg > returnThreshold) {
-          state.brightnessPhase = 'up';
-          state.lastBrightnessRep = now;
-          state.repCount++;
-          const repEl = document.getElementById('repCounter');
-          if (repEl) repEl.textContent = state.repCount;
-          if (state.poseStatusEl) state.poseStatusEl.textContent = `Повторение ${state.repCount} из ${REPS_TARGET}`;
-          haptic('medium');
-          if (state.repCount >= REPS_TARGET) completeTask();
-        }
-      }, 100);
-
-      return true;
     }
 
-    function buildPushupFallbackScreen() {
-      // If camera failed to start, still keep user on pushups screen
-      // with a fallback link instead of auto-switching to math.
-      taskArea.innerHTML = `
-        <div class="task-title">Положите телефон на пол лицом вверх под грудь и сделайте 10 отжиманий</div>
-        <div class="pose-status" id="poseStatus">Камера недоступна</div>
-        <button class="fallback-link" id="pushupFallbackBtn">Камера не работает? Переключиться на примеры</button>
-      `;
-      document.getElementById('pushupFallbackBtn').addEventListener('click', () => {
-        haptic('selection');
-        setupMathTask(5);
+    function stopBarcodeScanner() {
+      state.scannerActive = false;
+      if (state.html5QrCode) {
+        try { state.html5QrCode.stop().then(() => state.html5QrCode.clear()); } catch(e) {}
+        state.html5QrCode = null;
+      }
+      // Stop native stream if any
+      barcodeSetupPreview.querySelectorAll('video').forEach(v => {
+        if (v.srcObject) { v.srcObject.getTracks().forEach(t => t.stop()); v.srcObject = null; }
       });
     }
 
-    function stopPushupDetector() {
-      if (state.brightnessInterval) {
-        clearInterval(state.brightnessInterval);
-        state.brightnessInterval = null;
-      }
-      if (state.stream) {
-        state.stream.getTracks().forEach(t => t.stop());
-        state.stream = null;
-      }
-    }
+    scanReferenceBtn.addEventListener('click', () => {
+      haptic('selection');
+      startBarcodeScanner(barcodeSetupPreview, 'reference', (code) => {
+        setBarcodeRef(code);
+        restoreBarcodeUI();
+        showToast('Эталонный код сохранён');
+        haptic('success');
+        barcodeSetupPreview.innerHTML = '';
+      });
+    });
 
-    // ==================== MATH ====================
+    resetBarcodeBtn.addEventListener('click', () => {
+      setBarcodeRef(null);
+      restoreBarcodeUI();
+      showToast('Код сброшен');
+      haptic('selection');
+    });
+
+    // ==================== TASK SCREENS ====================
+    // --- Math ---
     function generateMathProblems(count = 3) {
       const problems = [];
       for (let i = 0; i < count; i++) {
@@ -1596,27 +1343,21 @@
         const op = Math.random() > 0.5 ? '+' : '-';
         let answer, text;
         if (op === '+') { answer = a + b; text = `${a} + ${b}`; }
-        else {
-          const big = Math.max(a, b), small = Math.min(a, b);
-          answer = big - small; text = `${big} − ${small}`;
-        }
+        else { const big = Math.max(a,b), small = Math.min(a,b); answer = big - small; text = `${big} − ${small}`; }
         problems.push({ text, answer });
       }
       return problems;
     }
 
     function setupMathTask(count = 3) {
-      stopSquatDetector();
-      stopPushupDetector();
+      stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
       state.mathProblems = generateMathProblems(count);
-      state.mathIndex = 0;
-      state.mathCorrect = 0;
-
+      state.mathIndex = 0; state.mathCorrect = 0;
       const renderProblem = () => {
         if (state.mathIndex >= state.mathProblems.length) { completeTask(); return; }
         const p = state.mathProblems[state.mathIndex];
         taskArea.innerHTML = `
-          <div class="task-title">Решите пример (${state.mathIndex + 1} из ${state.mathProblems.length})</div>
+          <div class="task-title">Решите пример (${state.mathIndex+1} из ${state.mathProblems.length})</div>
           <div class="math-problem">${p.text} = ?</div>
           <input type="number" class="math-input" id="mathInput" inputmode="numeric" placeholder="?" autofocus>
           <button class="btn btn-primary btn-sm" id="mathSubmitBtn" style="margin-top:10px;max-width:200px;margin-left:auto;margin-right:auto;">Проверить</button>
@@ -1627,15 +1368,9 @@
           const val = parseInt(input.value);
           if (isNaN(val)) { showToast('Введите число'); haptic('error'); return; }
           if (val === p.answer) {
-            state.mathCorrect++;
-            haptic('success');
-            state.mathIndex++;
-            input.value = '';
-            renderProblem();
+            state.mathCorrect++; haptic('success'); state.mathIndex++; input.value = ''; renderProblem();
           } else {
-            haptic('error');
-            input.value = '';
-            input.style.borderColor = 'var(--danger)';
+            haptic('error'); input.value = ''; input.style.borderColor = 'var(--danger)';
             setTimeout(() => { input.style.borderColor = '#3A3A3C'; }, 500);
             showToast('Неверно, попробуйте ещё раз');
           }
@@ -1645,6 +1380,223 @@
         setTimeout(() => input.focus(), 100);
       };
       renderProblem();
+    }
+
+    // --- Memory 3×3 ---
+    function setupMemoryTask() {
+      stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
+      const steps = 4 + Math.floor(Math.random() * 2); // 4-5 steps
+      state.memorySequence = [];
+      for (let i = 0; i < steps; i++) state.memorySequence.push(Math.floor(Math.random() * 9));
+      state.memoryIndex = 0; state.memoryAccepting = false;
+
+      taskArea.innerHTML = `
+        <div class="task-title">Повторите последовательность (${steps} шагов)</div>
+        <div class="memory-grid" id="memoryGrid"></div>
+        <div class="memory-status" id="memoryStatus">Смотрите…</div>
+      `;
+      const grid = document.getElementById('memoryGrid');
+      state.memoryTiles = [];
+      for (let i = 0; i < 9; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'memory-tile'; tile.dataset.index = i;
+        tile.addEventListener('click', () => onMemoryTileClick(i));
+        grid.appendChild(tile); state.memoryTiles.push(tile);
+      }
+      // Play sequence
+      const playSeq = async () => {
+        const statusEl = document.getElementById('memoryStatus');
+        for (let i = 0; i < state.memorySequence.length; i++) {
+          const idx = state.memorySequence[i];
+          state.memoryTiles[idx].classList.add('lit');
+          haptic('light');
+          await new Promise(r => setTimeout(r, 600));
+          state.memoryTiles[idx].classList.remove('lit');
+          await new Promise(r => setTimeout(r, 200));
+        }
+        state.memoryAccepting = true; state.memoryIndex = 0;
+        if (statusEl) statusEl.textContent = 'Теперь ваш ход';
+      };
+      playSeq();
+    }
+
+    function onMemoryTileClick(index) {
+      if (!state.memoryAccepting) return;
+      const expected = state.memorySequence[state.memoryIndex];
+      const tile = state.memoryTiles[index];
+      if (index === expected) {
+        tile.classList.add('lit'); haptic('light');
+        setTimeout(() => tile.classList.remove('lit'), 300);
+        state.memoryIndex++;
+        if (state.memoryIndex >= state.memorySequence.length) {
+          state.memoryAccepting = false;
+          const statusEl = document.getElementById('memoryStatus');
+          if (statusEl) statusEl.textContent = 'Верно!';
+          haptic('success');
+          setTimeout(() => completeTask(), 400);
+        }
+      } else {
+        state.memoryAccepting = false;
+        tile.classList.add('wrong');
+        haptic('error');
+        const statusEl = document.getElementById('memoryStatus');
+        if (statusEl) statusEl.textContent = 'Ошибка. Повторите последовательность.';
+        setTimeout(() => {
+          tile.classList.remove('wrong');
+          // Replay sequence
+          state.memorySequence = [];
+          const steps = 4 + Math.floor(Math.random() * 2);
+          for (let i = 0; i < steps; i++) state.memorySequence.push(Math.floor(Math.random() * 9));
+          state.memoryIndex = 0; state.memoryAccepting = false;
+          const replay = async () => {
+            for (let i = 0; i < state.memorySequence.length; i++) {
+              const idx = state.memorySequence[i];
+              state.memoryTiles[idx].classList.add('lit');
+              haptic('light');
+              await new Promise(r => setTimeout(r, 600));
+              state.memoryTiles[idx].classList.remove('lit');
+              await new Promise(r => setTimeout(r, 200));
+            }
+            state.memoryAccepting = true; state.memoryIndex = 0;
+            if (statusEl) statusEl.textContent = 'Теперь ваш ход';
+          };
+          replay();
+        }, 1000);
+      }
+    }
+
+    // --- Barcode task ---
+    async function setupBarcodeTask() {
+      stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
+      const ref = getBarcodeRef();
+      if (!ref) {
+        taskArea.innerHTML = `
+          <div class="task-title">Штрихкод не настроен</div>
+          <div class="pose-status">Сначала задайте эталонный код в настройках будильника.</div>
+          <button class="btn btn-primary btn-sm" id="barcodeFallbackToMath" style="margin-top:14px;">Перейти к математике</button>
+        `;
+        document.getElementById('barcodeFallbackToMath').addEventListener('click', () => setupMathTask(3));
+        return;
+      }
+      taskArea.innerHTML = `
+        <div class="task-title">Отсканируйте ваш эталонный штрихкод</div>
+        <div class="scanner-preview" id="barcodeRingPreview"></div>
+        <div class="pose-status" id="barcodeRingStatus">Наведите камеру на код</div>
+        <button class="fallback-link" id="barcodeFallbackBtn">Не получается? Переключиться на примеры</button>
+      `;
+      const container = document.getElementById('barcodeRingPreview');
+      document.getElementById('barcodeFallbackBtn').addEventListener('click', () => { stopBarcodeScanner(); setupMathTask(3); });
+      await startBarcodeScanner(container, 'task', (code) => {
+        if (code === ref) {
+          haptic('success');
+          document.getElementById('barcodeRingStatus').textContent = 'Верно! Будильник отключён.';
+          setTimeout(() => completeTask(), 400);
+        } else {
+          haptic('error');
+          document.getElementById('barcodeRingStatus').textContent = 'Неверный код. Попробуйте снова.';
+          // Restart scanner
+          setTimeout(() => {
+            const c = document.getElementById('barcodeRingPreview');
+            if (c) startBarcodeScanner(c, 'task', (code2) => {
+              if (code2 === ref) { haptic('success'); completeTask(); }
+              else { haptic('error'); }
+            });
+          }, 1000);
+        }
+      });
+    }
+
+    // --- Squats ---
+    function showSquatScreen() {
+      state.repCount = 0; state.motionPhase = 'up'; state.lastRepTime = 0;
+      taskArea.innerHTML = `
+        <div class="task-title">Возьмите iPhone в руку и сделайте 10 приседаний</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / 10</small></div>
+        <div class="motion-visual"><canvas id="motionCanvas"></canvas></div>
+        <div class="motion-value" id="motionValue">Ожидание запуска…</div>
+        <div class="pose-status" id="poseStatus">Нажмите «Начать приседания»</div>
+        <button class="btn btn-primary motion-start-btn" id="startSquatBtn">Начать приседания</button>
+        <button class="fallback-link" id="squatFallbackBtn">Датчик не сработал? Переключиться на примеры</button>
+      `;
+      state.motionVisualCanvas = document.getElementById('motionCanvas');
+      state.motionValueEl = document.getElementById('motionValue');
+      state.poseStatusEl = document.getElementById('poseStatus');
+      const cv = state.motionVisualCanvas;
+      const ctx2d = cv.getContext('2d');
+      cv.width = cv.clientWidth * (window.devicePixelRatio || 1);
+      cv.height = cv.clientHeight * (window.devicePixelRatio || 1);
+      state.motionHistory = new Array(120).fill(9.8);
+      state.motionGraphCtx = ctx2d;
+      document.getElementById('startSquatBtn').addEventListener('click', onStartSquatClick);
+      document.getElementById('squatFallbackBtn').addEventListener('click', () => { haptic('selection'); setupMathTask(3); });
+    }
+
+    async function onStartSquatClick() {
+      const btn = document.getElementById('startSquatBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Запрос разрешения…'; }
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== 'granted') { showToast('Разрешение на датчик не выдано.'); if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; } return; }
+        } catch(err) { showToast('Ошибка запроса датчика.'); if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; } return; }
+      }
+      startMotionListener();
+      if (btn) { btn.textContent = 'Приседания начались…'; btn.disabled = true; }
+      if (state.poseStatusEl) state.poseStatusEl.textContent = 'Держите телефон в руке и приседайте';
+      haptic('success');
+    }
+
+    function startMotionListener() {
+      if (state.motionActive) return;
+      state.motionActive = true; state.motionPhase = 'up'; state.lastRepTime = 0;
+      state.motionHandler = (event) => {
+        if (!state.motionActive || !state.ringing) return;
+        const acc = event.accelerationIncludingGravity; if (!acc) return;
+        const x = acc.x || 0, y = acc.y || 0, z = acc.z || 0;
+        const magnitude = Math.sqrt(x*x + y*y + z*z);
+        const hist = state.motionHistory, cv = state.motionVisualCanvas, ctx2d = state.motionGraphCtx;
+        if (hist && cv && ctx2d) {
+          hist.push(magnitude); hist.shift();
+          const w = cv.width, h = cv.height;
+          ctx2d.clearRect(0, 0, w, h);
+          const yMid = h - ((9.8/16)*h);
+          ctx2d.strokeStyle = 'rgba(255,255,255,0.12)'; ctx2d.lineWidth = 1;
+          ctx2d.beginPath(); ctx2d.moveTo(0, yMid); ctx2d.lineTo(w, yMid); ctx2d.stroke();
+          ctx2d.strokeStyle = 'rgba(255,159,10,0.95)'; ctx2d.lineWidth = 2 * (window.devicePixelRatio || 1);
+          ctx2d.beginPath();
+          for (let i = 0; i < hist.length; i++) {
+            const xPos = (i/(hist.length-1))*w, yPos = h - ((hist[i]/16)*h);
+            if (i === 0) ctx2d.moveTo(xPos, yPos); else ctx2d.lineTo(xPos, yPos);
+          }
+          ctx2d.stroke();
+        }
+        if (state.motionValueEl) state.motionValueEl.textContent = `|a| = ${magnitude.toFixed(2)} м/с²`;
+        const now = Date.now();
+        const cooldownOK = (now - state.lastRepTime) > 800;
+        if (state.motionPhase === 'up' && magnitude < 7.8 && cooldownOK) {
+          state.motionPhase = 'down';
+          if (state.poseStatusEl) state.poseStatusEl.textContent = 'Отлично, теперь вверх!';
+          haptic('selection');
+        } else if (state.motionPhase === 'down' && magnitude > 11.8) {
+          state.motionPhase = 'up'; state.lastRepTime = now; state.repCount++;
+          const repEl = document.getElementById('repCounter'); if (repEl) repEl.textContent = state.repCount;
+          if (state.poseStatusEl) state.poseStatusEl.textContent = `Повторение ${state.repCount} из 10`;
+          haptic('medium');
+          if (state.repCount >= 10) completeTask();
+        }
+      };
+      window.addEventListener('devicemotion', state.motionHandler, true);
+    }
+    function stopSquatDetector() {
+      state.motionActive = false;
+      if (state.motionHandler) { window.removeEventListener('devicemotion', state.motionHandler, true); state.motionHandler = null; }
+    }
+
+    // --- Pushups (kept for legacy but not offered) ---
+    async function startPushupDetector() { /* placeholder if needed */ }
+    function stopPushupDetector() {
+      if (state.brightnessInterval) { clearInterval(state.brightnessInterval); state.brightnessInterval = null; }
+      if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
     }
 
     function completeTask() {
@@ -1659,44 +1611,34 @@
       state.ringing = true;
       try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
       saveState();
-
       state.repCount = 0;
-
-      if (typeof tg.enableClosingConfirmation === 'function') {
-        try { tg.enableClosingConfirmation(); } catch(e) {}
-      }
+      if (typeof tg.enableClosingConfirmation === 'function') { try { tg.enableClosingConfirmation(); } catch(e) {} }
       nightExitBtn.style.display = 'none';
-
       initAudioCtx();
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
-        try { await state.audioCtx.resume(); } catch(e) {}
-      }
+      if (state.audioCtx && state.audioCtx.state === 'suspended') { try { await state.audioCtx.resume(); } catch(e) {} }
       await requestWakeLock();
-
       if (state.nightMode) {
-        nightOverlay.classList.remove('active');
-        nightModeToggle.classList.remove('on');
-        clockDisplay.classList.remove('dim');
-        stopWakeVideo();
+        nightOverlay.classList.remove('active'); nightModeToggle.classList.remove('on');
+        clockDisplay.classList.remove('dim'); stopWakeVideo();
       }
-
-      await startWavAlarm(state.melody);
-
+      const alarm = state.alarms.find(a => a.id === state.ringingAlarmId) || state.alarms.find(a => a.enabled) || state.alarms[0];
+      if (alarm && alarm.customMelody && state.customMelodyBlob) {
+        // Play custom melody
+        stopWavAlarm();
+        if (state.customMelodyUrl) {
+          alarmAudio.src = state.customMelodyUrl; alarmAudio.loop = true; alarmAudio.volume = 0.3;
+          alarmAudio.play().catch(() => startWavAlarm('field'));
+        } else { await startWavAlarm('field'); }
+      } else {
+        await startWavAlarm(alarm?.melody || 'field');
+      }
       if (state.hapticInterval) clearInterval(state.hapticInterval);
-      state.hapticInterval = setInterval(() => {
-        if (!state.ringing) return;
-        haptic('error');
-      }, 1500);
+      state.hapticInterval = setInterval(() => { if (!state.ringing) return; haptic('error'); }, 1500);
       haptic('error');
-
       ringOverlay.classList.add('active');
       stopAlarmBtn.classList.add('hidden');
-
       taskArea.innerHTML = '';
-      state.mathProblems = [];
-      state.mathIndex = 0;
-      state.mathCorrect = 0;
-
+      state.mathProblems = []; state.mathIndex = 0; state.mathCorrect = 0;
       if (isTest) {
         stopAlarmBtn.classList.remove('hidden');
         const testMsg = document.createElement('div');
@@ -1704,15 +1646,13 @@
         testMsg.textContent = 'Тестовый режим — задание не требуется';
         taskArea.appendChild(testMsg);
       } else {
-        // NO automatic fallback to math. Each task opens its own screen.
-        if (state.task === 'pushups') {
-          await startPushupDetector();
-        } else if (state.task === 'squats') {
-          showSquatScreen();
-        } else {
-          setupMathTask(3);
-        }
+        const task = alarm?.task || 'math';
+        if (task === 'math') setupMathTask(3);
+        else if (task === 'memory') setupMemoryTask();
+        else if (task === 'barcode') await setupBarcodeTask();
+        else setupMathTask(3);
       }
+      updateAlarmBadge();
     }
 
     // ==================== STOP ALARM ====================
@@ -1720,60 +1660,215 @@
       if (!state.ringing) return;
       state.ringing = false;
       try { localStorage.removeItem(RING_FLAG); } catch(e) {}
-
       stopWavAlarm();
-      stopSquatDetector();
-      stopPushupDetector();
-
-      if (state.hapticInterval) {
-        clearInterval(state.hapticInterval);
-        state.hapticInterval = null;
-      }
+      stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
+      if (state.hapticInterval) { clearInterval(state.hapticInterval); state.hapticInterval = null; }
       ringOverlay.classList.remove('active');
       taskArea.innerHTML = '';
-
-      document.querySelectorAll('canvas').forEach(c => {
-        if (c.style.display === 'none') c.remove();
-      });
-
-      state.alarmEnabled = false;
+      // Disable the alarm that rang
+      const alarm = state.alarms.find(a => a.id === state.ringingAlarmId);
+      if (alarm) alarm.enabled = false;
+      state.ringingAlarmId = null;
       state.lastTriggeredMinute = null;
-      toggleAlarmText.textContent = 'Включить будильник';
-      toggleAlarmBtn.classList.remove('btn-danger');
-      toggleAlarmBtn.classList.add('btn-primary');
-      alarmBadge.classList.add('hidden');
-      headerStatus.textContent = 'ВЫКЛ';
-      headerStatus.style.color = '';
-
       nightExitBtn.style.display = '';
-
-      if (typeof tg.disableClosingConfirmation === 'function') {
-        try { tg.disableClosingConfirmation(); } catch(e) {}
-      }
-
+      if (typeof tg.disableClosingConfirmation === 'function') { try { tg.disableClosingConfirmation(); } catch(e) {} }
       if (state.nightMode) {
-        nightOverlay.classList.add('active');
-        nightModeToggle.classList.add('on');
-        clockDisplay.classList.add('dim');
-        startWakeVideo();
-      } else {
-        releaseWakeLock();
-      }
-
+        nightOverlay.classList.add('active'); nightModeToggle.classList.add('on');
+        clockDisplay.classList.add('dim'); startWakeVideo();
+      } else { releaseWakeLock(); }
       ensureKeepAlive();
       saveState();
+      renderAlarmList();
+      updateAlarmBadge();
     }
 
-    stopAlarmBtn.addEventListener('click', () => {
-      stopAlarm();
+    stopAlarmBtn.addEventListener('click', () => { stopAlarm(); });
+
+    // ==================== ALARM TOGGLE (global) ====================
+    toggleAlarmBtn?.addEventListener('click', () => {
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+      if (!alarm) return;
+      if (!isPremium() && state.alarms.indexOf(alarm) > 0) { openPremiumModal(); return; }
+      alarm.enabled = !alarm.enabled;
+      haptic('medium');
+      renderAlarmList();
+      saveState();
+      syncBackupBot(alarm);
     });
+
+    // ==================== TEST ====================
+    testBtn.addEventListener('click', async () => {
+      initAudioCtx(); haptic('medium'); triggerAlarm(true);
+    });
+
+    // ==================== NIGHT MODE ====================
+    nightModeToggle.addEventListener('click', async () => {
+      initAudioCtx(); haptic('selection');
+      if (state.nightMode) exitNightMode(); else enterNightMode();
+    });
+    async function enterNightMode() {
+      state.nightMode = true;
+      nightModeToggle.classList.add('on'); nightModeToggle.setAttribute('aria-checked', 'true');
+      nightOverlay.classList.add('active'); clockDisplay.classList.add('dim');
+      await requestWakeLock(); startWakeVideo(); ensureKeepAlive(); saveState();
+      showToast('Ночной режим включён');
+    }
+    function exitNightMode() {
+      state.nightMode = false;
+      nightModeToggle.classList.remove('on'); nightModeToggle.setAttribute('aria-checked', 'false');
+      nightOverlay.classList.remove('active'); clockDisplay.classList.remove('dim');
+      releaseWakeLock(); stopWakeVideo(); ensureKeepAlive(); saveState();
+      showToast('Ночной режим выключен');
+    }
+    nightExitBtn.addEventListener('click', () => { if (state.ringing) return; exitNightMode(); });
+
+    // ==================== WAKE LOCK ====================
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try { state.wakeLock = await navigator.wakeLock.request('screen'); state.wakeLock.addEventListener('release', () => {}); } catch(e) {}
+      }
+    }
+    function releaseWakeLock() { if (state.wakeLock) { state.wakeLock.release(); state.wakeLock = null; } }
+    function startWakeVideo() {
+      if (state.wakeVideoStream) return;
+      try {
+        const canvas = document.createElement('canvas'); canvas.width = 1; canvas.height = 1;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1);
+        state.wakeVideoStream = canvas.captureStream(1);
+        wakeVideo.srcObject = state.wakeVideoStream; wakeVideo.play().catch(() => {});
+      } catch(e) {}
+    }
+    function stopWakeVideo() {
+      if (state.wakeVideoStream) { state.wakeVideoStream.getTracks().forEach(t => t.stop()); state.wakeVideoStream = null; }
+      wakeVideo.pause(); wakeVideo.srcObject = null;
+    }
+
+    // ==================== PREMIUM ====================
+    function openPremiumModal() {
+      premiumModal.classList.add('active');
+      updatePremiumModal();
+    }
+    premiumModalClose.addEventListener('click', () => premiumModal.classList.remove('active'));
+    premiumModal.addEventListener('click', (e) => { if (e.target === premiumModal) premiumModal.classList.remove('active'); });
+    premiumBanner.addEventListener('click', openPremiumModal);
+
+    function updatePremiumModal() {
+      const premium = isPremium();
+      premiumModalTitle.textContent = premium ? 'Premium активен' : 'Premium';
+      premiumModalDesc.textContent = premium
+        ? 'Все функции разблокированы. Управляйте подпиской здесь или в Настройках Telegram → Telegram Stars.'
+        : 'Разблокируйте все возможности умного будильника.';
+      premiumStatusBox.textContent = premiumLabel();
+      premiumStatusBox.className = 'premium-status' + (premium ? '' : ' inactive');
+      premiumModalButtons.innerHTML = '';
+      if (premium) {
+        if (state.premium.subscription && !state.premium.cancelAt) {
+          const cancelBtn = document.createElement('button');
+          cancelBtn.className = 'btn btn-secondary';
+          cancelBtn.textContent = 'Отключить автопродление';
+          cancelBtn.addEventListener('click', cancelSubscription);
+          premiumModalButtons.appendChild(cancelBtn);
+        } else if (state.premium.subscription && state.premium.cancelAt) {
+          const note = document.createElement('div');
+          note.style.cssText = 'font-size:13px;color:var(--text-secondary);text-align:center;padding:8px;';
+          note.textContent = 'Автопродление отключено. Доступ сохранится до конца оплаченного периода. Подпиской также можно управлять в Настройках Telegram → Telegram Stars.';
+          premiumModalButtons.appendChild(note);
+        }
+        if (state.premium.trialEndsAt && Date.now() < state.premium.trialEndsAt) {
+          const subBtn = document.createElement('button');
+          subBtn.className = 'btn btn-primary';
+          subBtn.textContent = 'Оформить подписку 150 ⭐/мес';
+          subBtn.addEventListener('click', subscribePremium);
+          premiumModalButtons.appendChild(subBtn);
+        }
+      } else {
+        const trialBtn = document.createElement('button');
+        trialBtn.className = 'btn btn-primary';
+        trialBtn.textContent = 'Активировать 3 дня бесплатно';
+        trialBtn.addEventListener('click', startTrial);
+        premiumModalButtons.appendChild(trialBtn);
+        const subBtn = document.createElement('button');
+        subBtn.className = 'btn btn-secondary';
+        subBtn.textContent = 'Подписаться за 150 ⭐ / мес';
+        subBtn.addEventListener('click', subscribePremium);
+        premiumModalButtons.appendChild(subBtn);
+      }
+    }
+
+    async function subscribePremium() {
+      if (!TG_ID) { showToast('Telegram ID не определён'); return; }
+      haptic('medium');
+      try {
+        const res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'create_invoice', telegram_id: TG_ID }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          tg.openInvoice(data.url, (status) => {
+            if (status === 'paid') activatePremium(30);
+            else showToast('Оплата не завершена');
+          });
+        } else {
+          showToast('Не удалось создать счёт');
+        }
+      } catch(e) { showToast('Ошибка сети'); }
+    }
+
+    async function cancelSubscription() {
+      if (!TG_ID) { showToast('Telegram ID не определён'); return; }
+      haptic('medium');
+      try {
+        const res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel_subscription', telegram_id: TG_ID }),
+        });
+        if (res.ok) {
+          state.premium.cancelAt = Date.now();
+          savePremium();
+          refreshPremiumUI();
+          showToast('Автопродление отключено. Доступ сохранится до конца оплаченного периода.', 4000);
+        } else {
+          showToast('Не удалось отключить автопродление');
+        }
+      } catch(e) { showToast('Ошибка сети'); }
+    }
+
+    // ==================== BACKUP BOT ====================
+    backupBotToggle.addEventListener('click', () => {
+      if (!isPremium()) { openPremiumModal(); return; }
+      state.backupEnabled = !state.backupEnabled;
+      backupBotToggle.classList.toggle('on', state.backupEnabled);
+      backupBotToggle.setAttribute('aria-checked', state.backupEnabled);
+      haptic('selection');
+      saveState();
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+      if (alarm) syncBackupBot(alarm);
+    });
+
+    function syncBackupBot(alarm) {
+      if (!state.backupEnabled || !isPremium() || !TG_ID) return;
+      const now = new Date();
+      const target = new Date(now);
+      target.setHours(alarm.hour, alarm.minute, 0, 0);
+      if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
+      fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sync_alarm',
+          telegram_id: TG_ID,
+          alarm_time: target.toISOString(),
+          backup_enabled: alarm.enabled && state.backupEnabled,
+        }),
+      }).catch(() => {});
+    }
 
     // ==================== URL PARAM ?ring=1 ====================
     if (new URLSearchParams(window.location.search).get('ring') === '1') {
-      setTimeout(async () => {
-        initAudioCtx();
-        await triggerAlarm(true);
-      }, 800);
+      setTimeout(async () => { initAudioCtx(); await triggerAlarm(true); }, 800);
     }
 
     // ==================== VISIBILITY & UNLOAD ====================
@@ -1782,36 +1877,24 @@
         if ((state.nightMode || state.ringing) && !state.wakeLock) requestWakeLock();
         if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
         if (state.nightMode && !state.wakeVideoStream) startWakeVideo();
-        if (state.ringing && alarmAudio.paused && alarmAudio.src) {
-          alarmAudio.play().catch(() => {});
-        }
+        if (state.ringing && alarmAudio.paused && alarmAudio.src) alarmAudio.play().catch(() => {});
       }
     });
-
     window.addEventListener('beforeunload', () => {
-      stopSilentAudio();
-      stopSquatDetector();
-      stopPushupDetector();
+      stopSilentAudio(); stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
       if (state.hapticInterval) clearInterval(state.hapticInterval);
-      releaseWakeLock();
-      stopWakeVideo();
+      releaseWakeLock(); stopWakeVideo();
     });
-
     document.addEventListener('click', () => {
       if (state.nightMode && !state.wakeLock) requestWakeLock();
       initAudioCtx();
-      if (state.ringing && alarmAudio.paused && alarmAudio.src) {
-        alarmAudio.play().catch(() => {});
-      }
+      if (state.ringing && alarmAudio.paused && alarmAudio.src) alarmAudio.play().catch(() => {});
     }, { once: true });
-
     document.addEventListener('touchstart', () => {
-      if (state.ringing && alarmAudio.paused && alarmAudio.src) {
-        alarmAudio.play().catch(() => {});
-      }
+      if (state.ringing && alarmAudio.paused && alarmAudio.src) alarmAudio.play().catch(() => {});
     });
 
-    console.log('Smart Alarm loaded');
+    console.log('Smart Alarm v8 loaded');
   </script>
 </body>
 </html>
