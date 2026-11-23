@@ -472,9 +472,10 @@
     }
     .math-input:focus { border-color: var(--accent); }
 
+    /* ==================== VIDEO PREVIEW (с оверлеем) ==================== */
     .video-preview {
-      width: 200px;
-      height: 150px;
+      width: 220px;
+      height: 280px;
       border-radius: 16px;
       background: #2C2C2E;
       margin: 14px auto;
@@ -485,11 +486,21 @@
       border: 1px solid var(--card-border);
       position: relative;
     }
-    .video-preview video, .video-preview canvas {
+    .video-preview video {
       width: 100%;
       height: 100%;
       object-fit: cover;
       transform: scaleX(-1);
+      position: absolute;
+      inset: 0;
+    }
+    .video-preview canvas.overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
     }
     .pose-status {
       font-size: 14px;
@@ -497,6 +508,7 @@
       margin-top: 12px;
       min-height: 18px;
       font-weight: 500;
+      text-align: center;
     }
     .depth-bar-container {
       width: 100%;
@@ -513,6 +525,23 @@
       border-radius: 3px;
       transition: width 0.1s ease;
     }
+    .lowlight-btn {
+      display: none;
+      margin-top: 12px;
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 12px;
+      background: rgba(255,159,10,0.12);
+      border: 1px solid rgba(255,159,10,0.35);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.15s ease;
+    }
+    .lowlight-btn:active { transform: scale(0.97); }
+    .lowlight-btn.show { display: block; }
 
     /* ==================== NIGHT OVERLAY ==================== */
     .night-overlay {
@@ -812,8 +841,9 @@
     const headerStatus = document.getElementById('headerStatus');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v2';
-    const RING_FLAG = 'smart_alarm_ringing_v2';
+    const STORAGE_KEY = 'smart_alarm_state_v3';
+    const RING_FLAG = 'smart_alarm_ringing_v3';
+    const REPS_TARGET = 10;
 
     // ==================== STATE ====================
     const state = {
@@ -841,13 +871,21 @@
       poseStatusEl: null,
       poseReady: false,
       phase: 'up',
-      // Audio watchdog
+      // Vertical tracking
+      baseY: null,
+      baseYSamples: [],
+      calibrationStart: 0,
+      CALIBRATION_MS: 1500,
+      lastShoulderY: null,
+      // Low-light
+      noLandmarkSince: 0,
+      lowLightTimer: null,
+      lowLightTriggered: false,
+      lowLightBtnEl: null,
+      // Audio
       audioWatchdog: null,
-      // Volume ramp
       volumeRampInterval: null,
-      // Haptic
       hapticInterval: null,
-      // WAV URL
       currentWavUrl: null,
     };
 
@@ -865,7 +903,6 @@
         }));
       } catch(e) {}
     }
-
     function loadState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -962,20 +999,14 @@
       }
       const target = new Date(now);
       target.setHours(state.alarmHour, state.alarmMinute, 0, 0);
-      if (target.getTime() <= now.getTime()) {
-        target.setDate(target.getDate() + 1);
-      }
+      if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
       const diff = Math.max(0, target.getTime() - now.getTime());
       const totalMin = Math.floor(diff / 60000);
       const hours = Math.floor(totalMin / 60);
       const mins = totalMin % 60;
-      if (hours > 0) {
-        countdownEl.textContent = `Зазвенит через ${hours} ч ${mins} мин`;
-      } else if (totalMin > 0) {
-        countdownEl.textContent = `Зазвенит через ${mins} мин`;
-      } else {
-        countdownEl.textContent = 'Зазвенит через несколько секунд';
-      }
+      if (hours > 0) countdownEl.textContent = `Зазвенит через ${hours} ч ${mins} мин`;
+      else if (totalMin > 0) countdownEl.textContent = `Зазвенит через ${mins} мин`;
+      else countdownEl.textContent = 'Зазвенит через несколько секунд';
       countdownEl.classList.remove('idle');
     }
 
@@ -995,7 +1026,7 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ==================== ANTI-CHEAT: RESUME RINGING ====================
+    // ==================== ANTI-CHEAT ====================
     (function checkResumeRinging() {
       const saved = loadState();
       const urlRing = new URLSearchParams(window.location.search).get('ring') === '1';
@@ -1007,14 +1038,12 @@
       }
     })();
 
-    // ==================== AUDIO CONTEXT & SILENT KEEP-ALIVE ====================
+    // ==================== AUDIO CONTEXT ====================
     function initAudioCtx() {
       if (!state.audioCtx) {
         try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
       }
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
-      }
+      if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
       return state.audioCtx;
     }
 
@@ -1076,7 +1105,6 @@
       const sampleRate = 44100;
       const totalSamples = Math.ceil(cycleDuration * sampleRate);
       const offline = new OfflineAudioContext(1, totalSamples, sampleRate);
-
       const masterGain = offline.createGain();
       masterGain.gain.value = 0.8;
       masterGain.connect(offline.destination);
@@ -1201,11 +1229,9 @@
       const bufferSize = 44 + dataSize;
       const arrayBuffer = new ArrayBuffer(bufferSize);
       const view = new DataView(arrayBuffer);
-
       function writeString(offset, str) {
         for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
       }
-
       writeString(0, 'RIFF');
       view.setUint32(4, 36 + dataSize, true);
       writeString(8, 'WAVE');
@@ -1245,9 +1271,7 @@
     function startVolumeRamp() {
       stopVolumeRamp();
       alarmAudio.volume = 0.15;
-      const startVol = 0.15;
-      const targetVol = 1.0;
-      const duration = 25000;
+      const startVol = 0.15, targetVol = 1.0, duration = 25000;
       const startTime = Date.now();
       state.volumeRampInterval = setInterval(() => {
         if (!state.ringing) { stopVolumeRamp(); return; }
@@ -1260,7 +1284,6 @@
         if (progress >= 1) stopVolumeRamp();
       }, 200);
     }
-
     function stopVolumeRamp() {
       if (state.volumeRampInterval) {
         clearInterval(state.volumeRampInterval);
@@ -1323,7 +1346,7 @@
       } catch(e) {}
     }
 
-    // ==================== HAPTIC FEEDBACK ====================
+    // ==================== HAPTIC ====================
     function haptic(type = 'medium') {
       if (tg?.HapticFeedback) {
         try {
@@ -1346,18 +1369,15 @@
       toastTimeout = setTimeout(() => toastEl.classList.remove('show'), duration);
     }
 
-    // ==================== BATTERY CHECK ====================
+    // ==================== BATTERY ====================
     async function checkBattery() {
       if (!navigator.getBattery) return;
       try {
         const battery = await navigator.getBattery();
         const update = () => {
           const level = Math.round(battery.level * 100);
-          if (level < 25 && !battery.charging) {
-            batteryWarning.classList.add('show');
-          } else {
-            batteryWarning.classList.remove('show');
-          }
+          if (level < 25 && !battery.charging) batteryWarning.classList.add('show');
+          else batteryWarning.classList.remove('show');
         };
         update();
         battery.addEventListener('levelchange', update);
@@ -1433,7 +1453,7 @@
       }
     });
 
-    // ==================== TEST BUTTON ====================
+    // ==================== TEST ====================
     testBtn.addEventListener('click', async () => {
       initAudioCtx();
       haptic('medium');
@@ -1441,7 +1461,7 @@
       triggerAlarm(true);
     });
 
-    // ==================== NIGHT MODE TOGGLE ====================
+    // ==================== NIGHT MODE ====================
     nightModeToggle.addEventListener('click', async () => {
       initAudioCtx();
       haptic('selection');
@@ -1480,7 +1500,7 @@
       exitNightMode();
     });
 
-    // ==================== WAKE LOCK & HIDDEN VIDEO ====================
+    // ==================== WAKE LOCK ====================
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
         try {
@@ -1489,28 +1509,21 @@
         } catch(e) {}
       }
     }
-
     function releaseWakeLock() {
-      if (state.wakeLock) {
-        state.wakeLock.release();
-        state.wakeLock = null;
-      }
+      if (state.wakeLock) { state.wakeLock.release(); state.wakeLock = null; }
     }
-
     function startWakeVideo() {
       if (state.wakeVideoStream) return;
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 1; canvas.height = 1;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, 1, 1);
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1);
         state.wakeVideoStream = canvas.captureStream(1);
         wakeVideo.srcObject = state.wakeVideoStream;
         wakeVideo.play().catch(() => {});
       } catch(e) {}
     }
-
     function stopWakeVideo() {
       if (state.wakeVideoStream) {
         state.wakeVideoStream.getTracks().forEach(t => t.stop());
@@ -1520,7 +1533,7 @@
       wakeVideo.srcObject = null;
     }
 
-    // ==================== CAMERA & MEDIAPIPE POSE ====================
+    // ==================== CAMERA & POSE ====================
     async function requestCamera() {
       if (state.stream) return true;
       try {
@@ -1546,6 +1559,10 @@
         try { state.pose.close(); } catch(e) {}
         state.pose = null;
       }
+      if (state.lowLightTimer) {
+        clearInterval(state.lowLightTimer);
+        state.lowLightTimer = null;
+      }
     }
 
     async function initPose() {
@@ -1568,81 +1585,128 @@
       } catch(e) { return false; }
     }
 
+    // Vertical Y tracking using nose + shoulders
     function onPoseResults(results) {
       if (!state.ringing) return;
       const landmarks = results.poseLandmarks;
+      const overlay = document.querySelector('.video-preview canvas.overlay');
       if (!landmarks) {
         updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+        drawOverlay(overlay, null);
+        markNoLandmark();
         return;
       }
-      const required = [11, 12, 23, 24, 25, 26, 27, 28];
-      const visible = required.every(i => landmarks[i] && landmarks[i].visibility > 0.5);
-      if (!visible) {
-        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+      const nose = landmarks[0];
+      const ls = landmarks[11];
+      const rs = landmarks[12];
+      const visibilityOk = nose && ls && rs &&
+        (nose.visibility ?? 0) > 0.4 &&
+        (ls.visibility ?? 0) > 0.4 &&
+        (rs.visibility ?? 0) > 0.4;
+
+      if (!visibilityOk) {
+        updatePoseStatus('Нужно видеть лицо и плечи');
+        drawOverlay(overlay, null);
+        markNoLandmark();
         return;
       }
-      if (state.task === 'pushups') analyzePushup(landmarks);
-      else if (state.task === 'squats') analyzeSquat(landmarks);
-    }
 
-    function calcAngle(a, b, c) {
-      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-      let angle = Math.abs(radians * 180.0 / Math.PI);
-      if (angle > 180.0) angle = 360 - angle;
-      return angle;
-    }
+      clearNoLandmark();
 
-    function analyzePushup(landmarks) {
-      const ls = landmarks[11], le = landmarks[13], lw = landmarks[15];
-      const rs = landmarks[12], re = landmarks[14], rw = landmarks[16];
-      if (!ls || !le || !lw) { updatePoseStatus('Встаньте дальше, чтобы было видно тело'); return; }
-      const la = calcAngle(ls, le, lw);
-      const ra = (rs && re && rw) ? calcAngle(rs, re, rw) : la;
-      const avg = (la + ra) / 2;
-      const depth = Math.max(0, Math.min(100, (180 - avg) / 0.85));
-      if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
+      // Average Y of nose + shoulders (0 = top, 1 = bottom)
+      const avgY = (nose.y + ls.y + rs.y) / 3;
+      state.lastShoulderY = avgY;
 
-      if (state.phase === 'up' && avg < 95) {
-        state.phase = 'down';
-        updatePoseStatus('Отлично, вверх');
-        haptic('selection');
-      } else if (state.phase === 'down' && avg > 150) {
-        state.phase = 'up';
-        state.repCount++;
-        updatePoseStatus(`Повторение ${state.repCount} из 10`);
-        haptic('success');
-        if (state.repCount >= 10) completeTask();
-      } else if (state.phase === 'up' && avg > 150) {
-        updatePoseStatus('Опустись ниже');
-      } else if (state.phase === 'down' && avg < 95) {
-        updatePoseStatus('Хорошо, теперь вверх');
+      // Calibration phase (first 1.5s after camera start)
+      const now = Date.now();
+      if (!state.calibrationStart) state.calibrationStart = now;
+      const elapsed = now - state.calibrationStart;
+
+      if (elapsed < state.CALIBRATION_MS) {
+        state.baseYSamples.push(avgY);
+        updatePoseStatus('Приготовьтесь...');
+        drawOverlay(overlay, avgY);
+        return;
       }
-    }
 
-    function analyzeSquat(landmarks) {
-      const lh = landmarks[23], lk = landmarks[25], la = landmarks[27];
-      const rh = landmarks[24], rk = landmarks[26], ra = landmarks[28];
-      if (!lh || !lk || !la) { updatePoseStatus('Встаньте дальше, чтобы было видно тело'); return; }
-      const ll = calcAngle(lh, lk, la);
-      const rl = (rh && rk && ra) ? calcAngle(rh, rk, ra) : ll;
-      const avg = (ll + rl) / 2;
-      const depth = Math.max(0, Math.min(100, (180 - avg) / 0.85));
+      if (state.baseY === null) {
+        // Compute median of samples
+        const sorted = state.baseYSamples.slice().sort((a,b) => a-b);
+        state.baseY = sorted[Math.floor(sorted.length / 2)] || avgY;
+      }
+
+      // Determine threshold based on task
+      // Pushups: shoulders must drop noticeably. Squats: bigger drop.
+      const downDelta = state.task === 'pushups' ? 0.06 : 0.08;
+      const upTolerance = 0.02;
+      const downThreshold = state.baseY + downDelta;
+      const upThreshold = state.baseY - upTolerance;
+
+      // Depth bar
+      const depth = Math.max(0, Math.min(100, ((avgY - state.baseY) / 0.25) * 100));
       if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
 
-      if (state.phase === 'up' && avg < 100) {
+      // State machine
+      if (state.phase === 'up' && avgY > downThreshold) {
         state.phase = 'down';
-        updatePoseStatus('Отлично, вверх');
+        updatePoseStatus('Отлично, теперь вверх');
         haptic('selection');
-      } else if (state.phase === 'down' && avg > 150) {
+      } else if (state.phase === 'down' && avgY < upThreshold) {
         state.phase = 'up';
         state.repCount++;
-        updatePoseStatus(`Повторение ${state.repCount} из 10`);
-        haptic('success');
-        if (state.repCount >= 10) completeTask();
-      } else if (state.phase === 'up' && avg > 150) {
+        updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
+        haptic('medium');
+        const repEl = document.getElementById('repCounter');
+        if (repEl) repEl.textContent = state.repCount;
+        if (state.repCount >= REPS_TARGET) completeTask();
+      } else if (state.phase === 'up' && avgY <= upThreshold) {
         updatePoseStatus('Опустись ниже');
-      } else if (state.phase === 'down' && avg < 100) {
-        updatePoseStatus('Хорошо, теперь вверх');
+      }
+
+      drawOverlay(overlay, avgY, downThreshold, upThreshold);
+    }
+
+    function drawOverlay(canvas, currentY, downThreshold, upThreshold) {
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+      const h = canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
+      ctx.clearRect(0, 0, w, h);
+
+      if (downThreshold !== undefined && upThreshold !== undefined) {
+        // Target line (down-threshold)
+        ctx.strokeStyle = 'rgba(255,159,10,0.7)';
+        ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(0, downThreshold * h);
+        ctx.lineTo(w, downThreshold * h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Up threshold (softer line)
+        ctx.strokeStyle = 'rgba(48,209,88,0.4)';
+        ctx.beginPath();
+        ctx.moveTo(0, upThreshold * h);
+        ctx.lineTo(w, upThreshold * h);
+        ctx.stroke();
+      }
+
+      if (currentY !== null && currentY !== undefined) {
+        // Moving marker
+        const my = currentY * h;
+        ctx.fillStyle = 'rgba(255,159,10,0.9)';
+        ctx.beginPath();
+        ctx.arc(w / 2, my, 6 * (window.devicePixelRatio || 1), 0, Math.PI * 2);
+        ctx.fill();
+
+        // Horizontal band
+        ctx.strokeStyle = 'rgba(255,159,10,0.5)';
+        ctx.lineWidth = 1 * (window.devicePixelRatio || 1);
+        ctx.beginPath();
+        ctx.moveTo(w * 0.15, my);
+        ctx.lineTo(w * 0.85, my);
+        ctx.stroke();
       }
     }
 
@@ -1650,7 +1714,25 @@
       if (state.poseStatusEl) state.poseStatusEl.textContent = text;
     }
 
-    // ==================== MATH TASKS ====================
+    // ==================== LOW-LIGHT TRACKING ====================
+    function markNoLandmark() {
+      if (!state.noLandmarkSince) state.noLandmarkSince = Date.now();
+      const elapsed = Date.now() - state.noLandmarkSince;
+      if (elapsed > 5000 && !state.lowLightTriggered) {
+        state.lowLightTriggered = true;
+        if (state.lowLightBtnEl) state.lowLightBtnEl.classList.add('show');
+        showToast('Плохое освещение. Нажмите кнопку ниже.', 3500);
+      }
+    }
+    function clearNoLandmark() {
+      state.noLandmarkSince = 0;
+      if (state.lowLightTriggered) {
+        state.lowLightTriggered = false;
+        if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
+      }
+    }
+
+    // ==================== MATH (5 PROBLEMS FOR LOW-LIGHT FALLBACK) ====================
     function generateMathProblems(count = 3) {
       const problems = [];
       for (let i = 0; i < count; i++) {
@@ -1677,6 +1759,11 @@
 
       state.repCount = 0;
       state.phase = 'up';
+      state.baseY = null;
+      state.baseYSamples = [];
+      state.calibrationStart = 0;
+      state.noLandmarkSince = 0;
+      state.lowLightTriggered = false;
 
       if (typeof tg.enableClosingConfirmation === 'function') {
         try { tg.enableClosingConfirmation(); } catch(e) {}
@@ -1722,9 +1809,9 @@
       } else {
         if (state.task === 'pushups' || state.task === 'squats') {
           const camOk = await setupCameraTask();
-          if (!camOk) setupMathTask();
+          if (!camOk) setupMathTask(5);
         } else {
-          setupMathTask();
+          setupMathTask(3);
         }
       }
     }
@@ -1735,21 +1822,30 @@
       const poseOk = await initPose();
       if (!poseOk) {
         showToast('Не удалось загрузить распознавание позы');
-        setupMathTask();
+        setupMathTask(5);
         return true;
       }
       const label = state.task === 'pushups' ? 'отжиманий' : 'приседаний';
+
       taskArea.innerHTML = `
-        <div class="task-title">Сделайте 10 ${label}</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / 10</small></div>
-        <div class="video-preview" id="videoPreview"></div>
-        <div class="pose-status" id="poseStatus">Загрузка распознавания позы...</div>
+        <div class="task-title">Сделайте ${REPS_TARGET} ${label}</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / ${REPS_TARGET}</small></div>
+        <div class="video-preview" id="videoPreview">
+          <canvas class="overlay"></canvas>
+        </div>
+        <div class="pose-status" id="poseStatus">Приготовьтесь...</div>
         <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
+        <button class="lowlight-btn" id="lowLightBtn">Плохое освещение — заменить на 5 примеров</button>
       `;
+
       state.poseStatusEl = document.getElementById('poseStatus');
       state.depthBarEl = document.getElementById('depthBar');
-      state.repCount = 0;
-      state.phase = 'up';
+      state.lowLightBtnEl = document.getElementById('lowLightBtn');
+      state.lowLightBtnEl.addEventListener('click', () => {
+        haptic('selection');
+        stopCamera();
+        setupMathTask(5);
+      });
 
       const preview = document.getElementById('videoPreview');
       const video = document.createElement('video');
@@ -1757,8 +1853,16 @@
       video.playsInline = true;
       video.muted = true;
       video.srcObject = state.stream;
-      video.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1);';
-      preview.appendChild(video);
+      preview.insertBefore(video, preview.firstChild);
+
+      // Reset calibration
+      state.repCount = 0;
+      state.phase = 'up';
+      state.baseY = null;
+      state.baseYSamples = [];
+      state.calibrationStart = 0;
+      state.noLandmarkSince = 0;
+      state.lowLightTriggered = false;
 
       video.onloadeddata = async () => {
         try {
@@ -1778,7 +1882,7 @@
           processFrame();
         } catch(e) {
           showToast('Ошибка распознавания');
-          setupMathTask();
+          setupMathTask(5);
         }
       };
 
@@ -1787,11 +1891,13 @@
         if (!state.ringing) { clearInterval(counterInterval); return; }
         if (repCounter) repCounter.textContent = state.repCount;
       }, 100);
+
       return true;
     }
 
-    function setupMathTask() {
-      state.mathProblems = generateMathProblems(3);
+    function setupMathTask(count = 3) {
+      if (state.lowLightBtnEl) state.lowLightBtnEl.classList.remove('show');
+      state.mathProblems = generateMathProblems(count);
       state.mathIndex = 0;
       state.mathCorrect = 0;
 
