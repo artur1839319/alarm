@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Умный будильник</title>
+  <!-- MediaPipe Pose CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <style>
     /* ---------- GLOBAL RESET & FONTS ---------- */
     * {
@@ -33,7 +35,7 @@
       max-width: 440px;
       height: 100vh;
       height: 100dvh;
-      padding: calc(16px + env(safe-area-inset-top)) 20px 24px;
+      padding: calc(env(safe-area-inset-top) + 20px) 20px 24px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -343,6 +345,30 @@
       padding: 10px;
     }
 
+    /* ---------- POSE STATUS & DEPTH BAR ---------- */
+    .pose-status {
+      font-size: 15px;
+      color: #0ff;
+      margin-top: 12px;
+      min-height: 20px;
+      font-weight: 500;
+    }
+    .depth-bar-container {
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .depth-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #f0f, #0ff);
+      border-radius: 5px;
+      transition: width 0.1s ease;
+    }
+
     /* ---------- TOAST ---------- */
     .toast {
       position: fixed;
@@ -369,6 +395,49 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* ---------- NIGHT MODE OVERLAY ---------- */
+    .night-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      background: #000000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .night-overlay.active { display: flex; }
+    .night-clock {
+      font-size: 72px;
+      font-weight: 300;
+      color: #1f1f1f;
+      letter-spacing: 6px;
+      line-height: 1;
+    }
+    .night-date {
+      font-size: 13px;
+      color: #151515;
+      margin-top: 16px;
+      letter-spacing: 1px;
+    }
+    .night-exit-btn {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: transparent;
+      border: 1px solid #111;
+      color: #222;
+      padding: 12px 30px;
+      border-radius: 30px;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    .night-exit-btn:active { border-color: #333; }
+
     /* ---------- HIDDEN ---------- */
     .hidden { display: none !important; }
 
@@ -383,6 +452,18 @@
       scrollbar-width: none;
     }
     .scroll-content::-webkit-scrollbar { display: none; }
+
+    /* ---------- HIDDEN WAKE VIDEO ---------- */
+    #wakeVideo {
+      position: fixed;
+      top: -10px;
+      left: -10px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -1;
+    }
   </style>
 </head>
 <body>
@@ -426,6 +507,9 @@
           <div class="choice" data-melody="bass">
             <span class="emoji">🔊</span> Звонкий бас
           </div>
+          <div class="choice" data-melody="violin">
+            <span class="emoji">🎻</span> Скрипка
+          </div>
         </div>
       </div>
 
@@ -458,6 +542,13 @@
     </div>
   </div>
 
+  <!-- Night Mode Overlay -->
+  <div class="night-overlay" id="nightOverlay">
+    <div class="night-clock" id="nightClock">00:00</div>
+    <div class="night-date" id="nightDate">—</div>
+    <button class="night-exit-btn" id="nightExitBtn">Выйти</button>
+  </div>
+
   <!-- Ringing overlay -->
   <div class="ring-overlay" id="ringOverlay">
     <div class="ring-clock" id="ringClock">00:00</div>
@@ -469,7 +560,9 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <!-- Audio context (created on first user interaction) -->
+  <!-- Hidden wake video (1x1) -->
+  <video id="wakeVideo" muted playsinline loop></video>
+
   <script>
     'use strict';
 
@@ -502,6 +595,11 @@
     const toastEl = document.getElementById('toast');
     const alarmBadge = document.getElementById('alarmBadge');
     const alarmBadgeText = document.getElementById('alarmBadgeText');
+    const nightOverlay = document.getElementById('nightOverlay');
+    const nightClock = document.getElementById('nightClock');
+    const nightDate = document.getElementById('nightDate');
+    const nightExitBtn = document.getElementById('nightExitBtn');
+    const wakeVideo = document.getElementById('wakeVideo');
 
     // ==================== STATE ====================
     const state = {
@@ -514,18 +612,26 @@
       ringing: false,
       lastTriggeredMinute: null,
       audioCtx: null,
-      keepAliveInterval: null,
-      hapticInterval: null,
+      silenceSource: null,
+      silenceAudio: null,
       wakeLock: null,
+      wakeVideoStream: null,
       // Task-specific
       repCount: 0,
       mathProblems: [],
       mathIndex: 0,
       mathCorrect: 0,
       stream: null,
+      pose: null,
+      poseCamera: null,
       motionDetectionInterval: null,
-      lastMotionTime: 0,
-      lastPosition: null,
+      lastPoseState: null,
+      depthBarEl: null,
+      poseStatusEl: null,
+      poseReady: false,
+      lastArmAngle: 180,
+      lastLegAngle: 180,
+      phase: 'up', // for exercise state machine
     };
 
     // ==================== INITIALIZATION ====================
@@ -561,6 +667,7 @@
       if (state.nightMode && !state.ringing) {
         clockDisplay.textContent = timeStr;
         clockDisplay.classList.add('dim');
+        nightClock.textContent = timeStr;
       } else {
         clockDisplay.textContent = timeStr;
         clockDisplay.classList.remove('dim');
@@ -568,7 +675,9 @@
 
       const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
       const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-      dateDisplay.textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+      const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+      dateDisplay.textContent = dateStr;
+      nightDate.textContent = dateStr;
 
       ringClock.textContent = timeStr;
 
@@ -596,7 +705,7 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ==================== AUDIO CONTEXT & KEEP-ALIVE ====================
+    // ==================== AUDIO CONTEXT & SILENT KEEP-ALIVE ====================
     function initAudioCtx() {
       if (!state.audioCtx) {
         try {
@@ -611,36 +720,61 @@
       return state.audioCtx;
     }
 
-    // Silent keep-alive: every 15s play a near-silent oscillator for 0.05s
-    function startKeepAlive() {
-      stopKeepAlive();
-      state.keepAliveInterval = setInterval(() => {
-        if (!state.audioCtx) return;
-        try {
-          const osc = state.audioCtx.createOscillator();
-          const gain = state.audioCtx.createGain();
-          gain.gain.value = 0.0001;
-          osc.connect(gain);
-          gain.connect(state.audioCtx.destination);
-          osc.start();
-          osc.stop(state.audioCtx.currentTime + 0.05);
-        } catch(e) {}
-      }, 15000);
+    // Silent keep-alive using zero-filled AudioBufferSourceNode (iOS audio session)
+    function startSilentAudio() {
+      stopSilentAudio();
+      const ctx = initAudioCtx();
+      if (!ctx) return;
+
+      try {
+        // Create a 1-second buffer filled with zeros
+        const bufferSize = ctx.sampleRate;
+        const emptyBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = emptyBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = 0;
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = emptyBuffer;
+        source.loop = true;
+
+        const dest = ctx.createMediaStreamDestination();
+        source.connect(dest);
+
+        // Hidden audio element to keep session alive
+        const audio = document.createElement('audio');
+        audio.style.display = 'none';
+        audio.srcObject = dest.stream;
+        document.body.appendChild(audio);
+        audio.play().catch(e => console.warn('Silent audio play failed:', e));
+
+        state.silenceSource = source;
+        state.silenceAudio = audio;
+        source.start();
+      } catch(e) {
+        console.warn('Silent audio setup error:', e);
+      }
     }
 
-    function stopKeepAlive() {
-      if (state.keepAliveInterval) {
-        clearInterval(state.keepAliveInterval);
-        state.keepAliveInterval = null;
+    function stopSilentAudio() {
+      if (state.silenceSource) {
+        try { state.silenceSource.stop(); } catch(e) {}
+        state.silenceSource = null;
+      }
+      if (state.silenceAudio) {
+        state.silenceAudio.pause();
+        state.silenceAudio.remove();
+        state.silenceAudio = null;
       }
     }
 
     function ensureKeepAlive() {
       if (state.alarmEnabled || state.nightMode) {
         initAudioCtx();
-        startKeepAlive();
+        startSilentAudio();
       } else {
-        stopKeepAlive();
+        stopSilentAudio();
       }
     }
 
@@ -659,7 +793,6 @@
 
       switch(type) {
         case 'field': {
-          // Bright, airy arpeggios – "running through a sunny field"
           const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 659.25, 783.99, 1046.50, 1318.51, 1046.50, 783.99, 659.25, 523.25, 659.25];
           const noteDur = 0.22;
           notes.forEach((freq, i) => {
@@ -677,7 +810,6 @@
             osc.start(t);
             osc.stop(t + noteDur);
           });
-          // Add a soft high shimmer
           const shimmer = ctx.createOscillator();
           const shGain = ctx.createGain();
           shimmer.type = 'sine';
@@ -691,7 +823,6 @@
           break;
         }
         case 'gentle': {
-          // Soft, slow, warm tones
           const notes = [392.00, 440.00, 493.88, 523.25, 493.88, 440.00, 392.00, 349.23, 392.00, 440.00, 493.88, 523.25];
           const noteDur = 0.6;
           notes.forEach((freq, i) => {
@@ -712,7 +843,6 @@
           break;
         }
         case 'classic': {
-          // Classic alarm: alternating tones
           const baseFreqs = [880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100];
           const noteDur = 0.35;
           baseFreqs.forEach((freq, i) => {
@@ -733,7 +863,6 @@
           break;
         }
         case 'bass': {
-          // Powerful low siren
           const baseFreq = 80;
           for (let i = 0; i < Math.floor(duration / 0.8); i++) {
             const t = now + i * 0.8;
@@ -750,7 +879,6 @@
             osc.start(t);
             osc.stop(t + 0.8);
           }
-          // Add sub-bass
           const sub = ctx.createOscillator();
           const subGain = ctx.createGain();
           sub.type = 'sine';
@@ -761,6 +889,64 @@
           subGain.connect(masterGain);
           sub.start(now);
           sub.stop(now + duration);
+          break;
+        }
+        case 'violin': {
+          // Violin-like melody: sawtooth + lowpass + LFO vibrato
+          const melody = [
+            { freq: 523.25, dur: 0.8 }, // C5
+            { freq: 587.33, dur: 0.8 }, // D5
+            { freq: 659.25, dur: 1.0 }, // E5
+            { freq: 587.33, dur: 0.6 }, // D5
+            { freq: 523.25, dur: 1.2 }, // C5
+            { freq: 440.00, dur: 0.8 }, // A4
+            { freq: 493.88, dur: 0.8 }, // B4
+            { freq: 523.25, dur: 1.2 }, // C5
+            { freq: 659.25, dur: 1.0 }, // E5
+            { freq: 783.99, dur: 1.4 }, // G5
+            { freq: 659.25, dur: 0.8 }, // E5
+            { freq: 523.25, dur: 1.6 }, // C5
+          ];
+          let t = now;
+          melody.forEach(({ freq, dur }) => {
+            if (t > now + duration) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+
+            // Violin timbre: sawtooth through lowpass
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq;
+            filter.type = 'lowpass';
+            filter.frequency.value = 1800;
+            filter.Q.value = 2;
+
+            // Vibrato: LFO sine at ~5.5 Hz, depth ~6 Hz
+            lfo.type = 'sine';
+            lfo.frequency.value = 5.5;
+            lfoGain.gain.value = 6; // Hz deviation
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+
+            // Envelope: soft attack, sustained body, gentle release
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.35, t + 0.08);
+            gain.gain.setValueAtTime(0.35, t + dur * 0.7);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(t);
+            lfo.start(t);
+            osc.stop(t + dur);
+            lfo.stop(t + dur);
+
+            t += dur;
+          });
           break;
         }
       }
@@ -798,7 +984,6 @@
       melodyGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
       haptic('light');
-      // Preview melody
       playMelody(melody, 2.5);
     });
 
@@ -819,7 +1004,6 @@
       haptic('medium');
 
       if (state.alarmEnabled) {
-        // Disable
         state.alarmEnabled = false;
         state.lastTriggeredMinute = null;
         toggleAlarmBtn.textContent = 'Включить будильник';
@@ -829,7 +1013,6 @@
         ensureKeepAlive();
         showToast('Будильник выключен');
       } else {
-        // Enable
         state.alarmHour = parseInt(hourSelect.value);
         state.alarmMinute = parseInt(minuteSelect.value);
         state.alarmEnabled = true;
@@ -841,7 +1024,6 @@
         alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
         ensureKeepAlive();
 
-        // Request camera if motion task selected
         if (state.task === 'pushups' || state.task === 'squats') {
           await requestCamera();
         }
@@ -866,29 +1048,48 @@
       haptic('medium');
 
       if (state.nightMode) {
-        // Disable night mode
-        state.nightMode = false;
-        nightModeBtn.textContent = '🌙 Ночной режим';
-        nightModeBtn.classList.remove('btn-primary');
-        nightModeBtn.classList.add('btn-secondary');
-        clockDisplay.classList.remove('dim');
-        releaseWakeLock();
-        ensureKeepAlive();
-        showToast('Ночной режим выключен');
+        exitNightMode();
       } else {
-        // Enable night mode
-        state.nightMode = true;
-        nightModeBtn.textContent = '☀️ Дневной режим';
-        nightModeBtn.classList.remove('btn-secondary');
-        nightModeBtn.classList.add('btn-primary');
-        clockDisplay.classList.add('dim');
-        await requestWakeLock();
-        ensureKeepAlive();
-        showToast('Ночной режим включён. Экран не погаснет.');
+        enterNightMode();
       }
     });
 
-    // ==================== WAKE LOCK ====================
+    async function enterNightMode() {
+      state.nightMode = true;
+      nightOverlay.classList.add('active');
+      nightModeBtn.textContent = '☀️ Дневной режим';
+      nightModeBtn.classList.remove('btn-secondary');
+      nightModeBtn.classList.add('btn-primary');
+      clockDisplay.classList.add('dim');
+
+      // Request wake lock
+      await requestWakeLock();
+
+      // Start hidden 1x1 wake video
+      startWakeVideo();
+
+      ensureKeepAlive();
+      showToast('Ночной режим включён. Экран не погаснет.');
+    }
+
+    function exitNightMode() {
+      state.nightMode = false;
+      nightOverlay.classList.remove('active');
+      nightModeBtn.textContent = '🌙 Ночной режим';
+      nightModeBtn.classList.remove('btn-primary');
+      nightModeBtn.classList.add('btn-secondary');
+      clockDisplay.classList.remove('dim');
+      releaseWakeLock();
+      stopWakeVideo();
+      ensureKeepAlive();
+      showToast('Ночной режим выключен');
+    }
+
+    nightExitBtn.addEventListener('click', () => {
+      exitNightMode();
+    });
+
+    // ==================== WAKE LOCK & HIDDEN VIDEO ====================
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
         try {
@@ -898,10 +1099,7 @@
           });
         } catch(e) {
           console.warn('Wake Lock error:', e);
-          showToast('Не удалось включить WakeLock. Попробуйте ещё раз.');
         }
-      } else {
-        showToast('WakeLock не поддерживается на этом устройстве');
       }
     }
 
@@ -912,12 +1110,38 @@
       }
     }
 
-    // ==================== CAMERA & MOTION DETECTION ====================
+    function startWakeVideo() {
+      if (state.wakeVideoStream) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 1, 1);
+        state.wakeVideoStream = canvas.captureStream(1); // 1 fps
+        wakeVideo.srcObject = state.wakeVideoStream;
+        wakeVideo.play().catch(e => console.warn('Wake video play failed:', e));
+      } catch(e) {
+        console.warn('Wake video setup error:', e);
+      }
+    }
+
+    function stopWakeVideo() {
+      if (state.wakeVideoStream) {
+        state.wakeVideoStream.getTracks().forEach(t => t.stop());
+        state.wakeVideoStream = null;
+      }
+      wakeVideo.pause();
+      wakeVideo.srcObject = null;
+    }
+
+    // ==================== CAMERA & MEDIAPIPE POSE ====================
     async function requestCamera() {
       if (state.stream) return true;
       try {
         state.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: 320, height: 240 },
+          video: { facingMode: 'user', width: 640, height: 480 },
           audio: false
         });
         return true;
@@ -936,42 +1160,164 @@
         state.stream.getTracks().forEach(t => t.stop());
         state.stream = null;
       }
+      if (state.pose) {
+        try { state.pose.close(); } catch(e) {}
+        state.pose = null;
+      }
       if (state.motionDetectionInterval) {
         clearInterval(state.motionDetectionInterval);
         state.motionDetectionInterval = null;
       }
     }
 
-    // Simple motion detection using canvas difference
-    function startMotionDetection(videoEl, canvasEl, onRep) {
-      const ctx2d = canvasEl.getContext('2d', { willReadFrequently: true });
-      let prevFrame = null;
-      let motionCooldown = false;
-
-      state.motionDetectionInterval = setInterval(() => {
-        if (videoEl.readyState < 2) return;
-        canvasEl.width = 80;
-        canvasEl.height = 60;
-        ctx2d.drawImage(videoEl, 0, 0, 80, 60);
-        const frame = ctx2d.getImageData(0, 0, 80, 60);
-        const data = frame.data;
-
-        if (prevFrame && !motionCooldown) {
-          let diff = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            diff += Math.abs(data[i] - prevFrame[i]);
+    // Initialize MediaPipe Pose
+    async function initPose() {
+      if (state.poseReady) return true;
+      if (typeof Pose === 'undefined') {
+        console.warn('MediaPipe Pose not loaded');
+        return false;
+      }
+      try {
+        const pose = new Pose({
+          locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`;
           }
-          const avgDiff = diff / (data.length / 4);
+        });
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        pose.onResults(onPoseResults);
+        state.pose = pose;
+        state.poseReady = true;
+        return true;
+      } catch(e) {
+        console.warn('Pose init error:', e);
+        return false;
+      }
+    }
 
-          if (avgDiff > 18) {
-            motionCooldown = true;
-            onRep();
-            setTimeout(() => { motionCooldown = false; }, 600);
-          }
+    function onPoseResults(results) {
+      if (!state.ringing) return;
+      const landmarks = results.poseLandmarks;
+      if (!landmarks) {
+        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+        return;
+      }
+
+      // Check if full body is visible (shoulders, hips, knees, ankles)
+      const required = [11, 12, 23, 24, 25, 26, 27, 28]; // shoulders, hips, knees, ankles
+      const visible = required.every(i => landmarks[i] && landmarks[i].visibility > 0.5);
+      if (!visible) {
+        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+        return;
+      }
+
+      if (state.task === 'pushups') {
+        analyzePushup(landmarks);
+      } else if (state.task === 'squats') {
+        analyzeSquat(landmarks);
+      }
+    }
+
+    function calcAngle(a, b, c) {
+      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+      let angle = Math.abs(radians * 180.0 / Math.PI);
+      if (angle > 180.0) angle = 360 - angle;
+      return angle;
+    }
+
+    function analyzePushup(landmarks) {
+      const leftShoulder = landmarks[11];
+      const leftElbow = landmarks[13];
+      const leftWrist = landmarks[15];
+      const rightShoulder = landmarks[12];
+      const rightElbow = landmarks[14];
+      const rightWrist = landmarks[16];
+
+      // Check if we have valid arm landmarks
+      if (!leftShoulder || !leftElbow || !leftWrist) {
+        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+        return;
+      }
+
+      const leftArmAngle = calcAngle(leftShoulder, leftElbow, leftWrist);
+      const rightArmAngle = rightShoulder && rightElbow && rightWrist
+        ? calcAngle(rightShoulder, rightElbow, rightWrist)
+        : leftArmAngle;
+      const avgAngle = (leftArmAngle + rightArmAngle) / 2;
+
+      // Update depth bar (lower angle = deeper)
+      const depth = Math.max(0, Math.min(100, (180 - avgAngle) / 0.85));
+      if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
+
+      // State machine: up -> down -> up
+      if (state.phase === 'up' && avgAngle < 95) {
+        state.phase = 'down';
+        updatePoseStatus('Отлично, вверх!');
+        haptic('medium');
+      } else if (state.phase === 'down' && avgAngle > 150) {
+        state.phase = 'up';
+        state.repCount++;
+        updatePoseStatus(`Повторение ${state.repCount} из 10`);
+        haptic('success');
+        if (state.repCount >= 10) {
+          completeTask();
         }
+      } else if (state.phase === 'up' && avgAngle > 150) {
+        updatePoseStatus('Опустись ниже');
+      } else if (state.phase === 'down' && avgAngle < 95) {
+        updatePoseStatus('Хорошо, теперь вверх');
+      }
+    }
 
-        prevFrame = new Uint8ClampedArray(data);
-      }, 150);
+    function analyzeSquat(landmarks) {
+      const leftHip = landmarks[23];
+      const leftKnee = landmarks[25];
+      const leftAnkle = landmarks[27];
+      const rightHip = landmarks[24];
+      const rightKnee = landmarks[26];
+      const rightAnkle = landmarks[28];
+
+      if (!leftHip || !leftKnee || !leftAnkle) {
+        updatePoseStatus('Встаньте дальше, чтобы было видно тело');
+        return;
+      }
+
+      const leftLegAngle = calcAngle(leftHip, leftKnee, leftAnkle);
+      const rightLegAngle = rightHip && rightKnee && rightAnkle
+        ? calcAngle(rightHip, rightKnee, rightAnkle)
+        : leftLegAngle;
+      const avgAngle = (leftLegAngle + rightLegAngle) / 2;
+
+      // Update depth bar
+      const depth = Math.max(0, Math.min(100, (180 - avgAngle) / 0.85));
+      if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
+
+      // State machine: up -> down -> up
+      if (state.phase === 'up' && avgAngle < 100) {
+        state.phase = 'down';
+        updatePoseStatus('Отлично, вверх!');
+        haptic('medium');
+      } else if (state.phase === 'down' && avgAngle > 150) {
+        state.phase = 'up';
+        state.repCount++;
+        updatePoseStatus(`Повторение ${state.repCount} из 10`);
+        haptic('success');
+        if (state.repCount >= 10) {
+          completeTask();
+        }
+      } else if (state.phase === 'up' && avgAngle > 150) {
+        updatePoseStatus('Опустись ниже');
+      } else if (state.phase === 'down' && avgAngle < 100) {
+        updatePoseStatus('Хорошо, теперь вверх');
+      }
+    }
+
+    function updatePoseStatus(text) {
+      if (state.poseStatusEl) state.poseStatusEl.textContent = text;
     }
 
     // ==================== MATH TASKS ====================
@@ -1000,12 +1346,26 @@
     async function triggerAlarm(isTest = false) {
       if (state.ringing) return;
       state.ringing = true;
-      state.lastMotionTime = 0;
+      state.repCount = 0;
+      state.phase = 'up';
+      state.lastArmAngle = 180;
+      state.lastLegAngle = 180;
 
       // Force audio resume
       initAudioCtx();
       if (state.audioCtx && state.audioCtx.state === 'suspended') {
         try { await state.audioCtx.resume(); } catch(e) {}
+      }
+
+      // If night mode was on, close it
+      if (state.nightMode) {
+        nightOverlay.classList.remove('active');
+        nightModeBtn.textContent = '🌙 Ночной режим';
+        nightModeBtn.classList.remove('btn-primary');
+        nightModeBtn.classList.add('btn-secondary');
+        clockDisplay.classList.remove('dim');
+        stopWakeVideo();
+        // Keep wake lock for alarm
       }
 
       // Play melody
@@ -1015,57 +1375,60 @@
       if (state.hapticInterval) clearInterval(state.hapticInterval);
       state.hapticInterval = setInterval(() => {
         haptic('heavy');
-        // Re-play melody if needed (long alarm)
       }, 1000);
 
       // Show overlay
       ringOverlay.classList.add('active');
       stopAlarmBtn.classList.add('hidden');
 
-      // Build task UI
       taskArea.innerHTML = '';
-      state.repCount = 0;
       state.mathProblems = [];
       state.mathIndex = 0;
       state.mathCorrect = 0;
 
       if (isTest) {
-        // In test mode, allow stopping immediately
         stopAlarmBtn.classList.remove('hidden');
         const testMsg = document.createElement('div');
         testMsg.style.cssText = 'color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:16px;';
         testMsg.textContent = 'Тестовый режим – задание не требуется';
         taskArea.appendChild(testMsg);
       } else {
-        // Real alarm – task required
         if (state.task === 'pushups' || state.task === 'squats') {
           const camOk = await setupCameraTask();
           if (!camOk) {
-            // Fallback to math
             setupMathTask();
           }
         } else {
           setupMathTask();
         }
       }
-
-      // If night mode, release wake lock briefly? No – keep it.
-      // Ensure wake lock stays active
     }
 
     async function setupCameraTask() {
       const camOk = await requestCamera();
       if (!camOk) return false;
 
+      const poseOk = await initPose();
+      if (!poseOk) {
+        showToast('Не удалось загрузить распознавание позы. Используем примеры.');
+        setupMathTask();
+        return true;
+      }
+
       const label = state.task === 'pushups' ? 'отжиманий' : 'приседаний';
-      const total = 10;
 
       taskArea.innerHTML = `
-        <div class="task-title">Сделайте ${total} ${label}</div>
-        <div class="task-counter"><span id="repCounter">0</span><small> / ${total}</small></div>
+        <div class="task-title">Сделайте 10 ${label}</div>
+        <div class="task-counter"><span id="repCounter">0</span><small> / 10</small></div>
         <div class="video-preview" id="videoPreview"></div>
-        <div style="color:rgba(255,255,255,0.4);font-size:13px;">Двигайтесь в кадре</div>
+        <div class="pose-status" id="poseStatus">Загрузка распознавания позы...</div>
+        <div class="depth-bar-container"><div class="depth-bar-fill" id="depthBar"></div></div>
       `;
+
+      state.poseStatusEl = document.getElementById('poseStatus');
+      state.depthBarEl = document.getElementById('depthBar');
+      state.repCount = 0;
+      state.phase = 'up';
 
       const preview = document.getElementById('videoPreview');
       const video = document.createElement('video');
@@ -1076,23 +1439,42 @@
       video.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1);';
       preview.appendChild(video);
 
-      const canvas = document.createElement('canvas');
-      canvas.style.display = 'none';
-      document.body.appendChild(canvas);
+      // Wait for video to be ready then start pose processing
+      video.onloadeddata = async () => {
+        try {
+          // Use a canvas for pose processing
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          canvas.style.display = 'none';
+          document.body.appendChild(canvas);
+          const ctx2d = canvas.getContext('2d');
 
-      const repCounter = document.getElementById('repCounter');
-
-      startMotionDetection(video, canvas, () => {
-        if (state.repCount < total) {
-          state.repCount++;
-          repCounter.textContent = state.repCount;
-          haptic('medium');
-          if (state.repCount >= total) {
-            // Task complete!
-            completeTask();
-          }
+          const processFrame = async () => {
+            if (!state.ringing || !state.pose) return;
+            if (video.readyState >= 2) {
+              ctx2d.drawImage(video, 0, 0, 640, 480);
+              await state.pose.send({ image: canvas });
+            }
+            requestAnimationFrame(processFrame);
+          };
+          processFrame();
+        } catch(e) {
+          console.warn('Pose processing error:', e);
+          showToast('Ошибка распознавания. Используем примеры.');
+          setupMathTask();
         }
-      });
+      };
+
+      // Update rep counter display
+      const repCounter = document.getElementById('repCounter');
+      const origUpdatePoseStatus = updatePoseStatus;
+      // We'll update the counter in the pose analysis via state.repCount
+      // and a polling interval
+      const counterInterval = setInterval(() => {
+        if (!state.ringing) { clearInterval(counterInterval); return; }
+        if (repCounter) repCounter.textContent = state.repCount;
+      }, 100);
 
       return true;
     }
@@ -1145,7 +1527,6 @@
           if (e.key === 'Enter') checkAnswer();
         });
 
-        // Focus after a tick
         setTimeout(() => input.focus(), 100);
       };
 
@@ -1163,27 +1544,20 @@
       if (!state.ringing) return;
       state.ringing = false;
 
-      // Stop haptic
       if (state.hapticInterval) {
         clearInterval(state.hapticInterval);
         state.hapticInterval = null;
       }
 
-      // Stop camera
       stopCamera();
 
-      // Hide overlay
       ringOverlay.classList.remove('active');
-
-      // Clear task area
       taskArea.innerHTML = '';
 
-      // Remove hidden canvas
       document.querySelectorAll('canvas').forEach(c => {
         if (c.style.display === 'none') c.remove();
       });
 
-      // Disable the alarm (it already triggered)
       state.alarmEnabled = false;
       state.lastTriggeredMinute = null;
       toggleAlarmBtn.textContent = 'Включить будильник';
@@ -1191,13 +1565,15 @@
       toggleAlarmBtn.classList.add('btn-primary');
       alarmBadge.classList.add('hidden');
 
-      // Keep night mode alive if active
-      ensureKeepAlive();
+      // If night mode was active, re-enter it
+      if (state.nightMode) {
+        nightOverlay.classList.add('active');
+        startWakeVideo();
+      } else {
+        releaseWakeLock();
+      }
 
-      // Stop any lingering audio after short delay
-      setTimeout(() => {
-        // Audio will naturally finish its scheduled notes
-      }, 100);
+      ensureKeepAlive();
     }
 
     stopAlarmBtn.addEventListener('click', () => {
@@ -1215,34 +1591,33 @@
     // ==================== VISIBILITY & UNLOAD ====================
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        // Re-acquire wake lock if night mode
         if (state.nightMode && !state.wakeLock) {
           requestWakeLock();
         }
-        // Resume audio context
         if (state.audioCtx && state.audioCtx.state === 'suspended') {
           state.audioCtx.resume();
+        }
+        if (state.nightMode && !state.wakeVideoStream) {
+          startWakeVideo();
         }
       }
     });
 
     window.addEventListener('beforeunload', () => {
-      stopKeepAlive();
+      stopSilentAudio();
       if (state.hapticInterval) clearInterval(state.hapticInterval);
       stopCamera();
       releaseWakeLock();
+      stopWakeVideo();
     });
 
-    // Re-acquire wake lock on user interaction
+    // Re-acquire on first user interaction
     document.addEventListener('click', () => {
       if (state.nightMode && !state.wakeLock) {
         requestWakeLock();
       }
       initAudioCtx();
     }, { once: true });
-
-    // ==================== INITIAL KEEP-ALIVE CHECK ====================
-    // Do nothing – keep-alive starts when alarm/night mode enabled
 
     console.log('Smart Alarm loaded');
   </script>
