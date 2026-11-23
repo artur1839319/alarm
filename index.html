@@ -63,6 +63,18 @@
       font-size: 15px; color: rgba(255, 255, 255, 0.5);
       margin-top: 10px; letter-spacing: 1px; text-transform: uppercase;
     }
+    /* Countdown */
+    .countdown {
+      margin-top: 12px;
+      font-size: 15px;
+      color: #0ff;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      min-height: 20px;
+      transition: opacity 0.3s;
+      text-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+    }
+    .countdown.idle { color: rgba(255,255,255,0.35); text-shadow: none; font-weight: 500; }
     .section-label {
       font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
       color: rgba(255, 255, 255, 0.4); margin-bottom: 12px; padding-left: 4px;
@@ -115,6 +127,19 @@
       font-size: 11px; color: rgba(255, 255, 255, 0.3); text-align: center;
       margin-top: 8px; line-height: 1.4; padding: 0 8px;
     }
+    .battery-warning {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: rgba(255, 180, 0, 0.12);
+      border: 1px solid rgba(255, 180, 0, 0.3);
+      color: #ffb400;
+      font-size: 12px;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .battery-warning.show { display: block; animation: fadeIn 0.4s ease; }
     .alarm-badge {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       padding: 10px; border-radius: 16px;
@@ -252,6 +277,7 @@
     <div class="clock-container">
       <div class="clock-time" id="clockDisplay">00:00</div>
       <div class="clock-date" id="dateDisplay">—</div>
+      <div class="countdown idle" id="countdown">Будильник выключен</div>
     </div>
 
     <div class="scroll-content">
@@ -295,6 +321,9 @@
         <button class="btn btn-secondary" id="nightModeBtn">🌙 Ночной режим</button>
         <div class="night-hint">
           Не блокируйте экран кнопкой. На iPhone OLED почти не тратит заряд, на Android лучше подключить зарядку
+        </div>
+        <div class="battery-warning" id="batteryWarning">
+          🔋 Заряд ниже 25%. Подключите iPhone к зарядке на ночь, чтобы будильник сработал.
         </div>
       </div>
     </div>
@@ -351,6 +380,7 @@
     // ==================== DOM REFERENCES ====================
     const clockDisplay = document.getElementById('clockDisplay');
     const dateDisplay = document.getElementById('dateDisplay');
+    const countdownEl = document.getElementById('countdown');
     const hourSelect = document.getElementById('hourSelect');
     const minuteSelect = document.getElementById('minuteSelect');
     const toggleAlarmBtn = document.getElementById('toggleAlarmBtn');
@@ -371,6 +401,11 @@
     const nightExitBtn = document.getElementById('nightExitBtn');
     const wakeVideo = document.getElementById('wakeVideo');
     const alarmAudio = document.getElementById('alarmAudio');
+    const batteryWarning = document.getElementById('batteryWarning');
+
+    // ==================== CONSTANTS ====================
+    const STORAGE_KEY = 'smart_alarm_state_v1';
+    const RING_FLAG = 'smart_alarm_ringing';
 
     // ==================== STATE ====================
     const state = {
@@ -394,18 +429,49 @@
       mathCorrect: 0,
       stream: null,
       pose: null,
-      poseCamera: null,
       depthBarEl: null,
       poseStatusEl: null,
       poseReady: false,
       phase: 'up',
       // Audio watchdog
       audioWatchdog: null,
+      // Volume ramp
+      volumeRampInterval: null,
       // Haptic
       hapticInterval: null,
-      // WAV URL (revoke on stop)
+      // WAV URL
       currentWavUrl: null,
+      // Battery
+      batteryManager: null,
     };
+
+    // ==================== PERSISTENCE ====================
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          alarmEnabled: state.alarmEnabled,
+          alarmHour: state.alarmHour,
+          alarmMinute: state.alarmMinute,
+          melody: state.melody,
+          task: state.task,
+          nightMode: state.nightMode,
+          ringing: state.ringing,
+          ringingSince: state.ringing ? Date.now() : 0,
+        }));
+      } catch(e) {}
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch(e) { return null; }
+    }
+
+    function clearRingFlag() {
+      try { localStorage.removeItem(RING_FLAG); } catch(e) {}
+    }
 
     // ==================== INITIALIZATION ====================
     function populateSelectors() {
@@ -421,15 +487,37 @@
         opt.textContent = String(i).padStart(2, '0');
         minuteSelect.appendChild(opt);
       }
-      hourSelect.value = state.alarmHour;
-      minuteSelect.value = state.alarmMinute;
     }
     populateSelectors();
 
-    document.querySelector(`[data-melody="${state.melody}"]`)?.classList.add('active');
-    document.querySelector(`[data-task="${state.task}"]`)?.classList.add('active');
+    // Restore saved state
+    (function restoreState() {
+      const saved = loadState();
+      if (saved) {
+        state.alarmEnabled = !!saved.alarmEnabled;
+        state.alarmHour = saved.alarmHour ?? 7;
+        state.alarmMinute = saved.alarmMinute ?? 0;
+        state.melody = saved.melody || 'field';
+        state.task = saved.task || 'pushups';
+        state.nightMode = !!saved.nightMode;
+        hourSelect.value = state.alarmHour;
+        minuteSelect.value = state.alarmMinute;
+      } else {
+        hourSelect.value = 7;
+        minuteSelect.value = 0;
+      }
+      document.querySelector(`[data-melody="${state.melody}"]`)?.classList.add('active');
+      document.querySelector(`[data-task="${state.task}"]`)?.classList.add('active');
+      if (state.alarmEnabled) {
+        toggleAlarmBtn.textContent = 'Выключить будильник';
+        toggleAlarmBtn.classList.remove('btn-primary');
+        toggleAlarmBtn.classList.add('btn-danger');
+        alarmBadge.classList.remove('hidden');
+        alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
+      }
+    })();
 
-    // ==================== CLOCK ====================
+    // ==================== CLOCK + COUNTDOWN ====================
     function updateClock() {
       const now = new Date();
       const h = String(now.getHours()).padStart(2, '0');
@@ -450,24 +538,69 @@
       nightDate.textContent = dateStr;
       ringClock.textContent = timeStr;
 
-      if (state.alarmEnabled && !state.ringing) {
-        const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
-        if (now.getHours() === state.alarmHour && now.getMinutes() === state.alarmMinute) {
-          if (state.lastTriggeredMinute !== minuteKey) {
-            state.lastTriggeredMinute = minuteKey;
-            triggerAlarm();
-          }
-        }
+      updateCountdown(now);
+      checkAlarmTrigger(now);
+    }
+
+    function updateCountdown(now) {
+      if (state.ringing) {
+        countdownEl.textContent = '🔔 Будильник звонит!';
+        countdownEl.classList.remove('idle');
+        return;
       }
-      if (state.alarmEnabled) {
-        const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
-        if (now.getHours() !== state.alarmHour || now.getMinutes() !== state.alarmMinute) {
-          if (state.lastTriggeredMinute === minuteKey) state.lastTriggeredMinute = null;
+      if (!state.alarmEnabled) {
+        countdownEl.textContent = 'Будильник выключен';
+        countdownEl.classList.add('idle');
+        return;
+      }
+      // Target = today or tomorrow at alarmHour:alarmMinute
+      const target = new Date(now);
+      target.setHours(state.alarmHour, state.alarmMinute, 0, 0);
+      if (target.getTime() <= now.getTime()) {
+        target.setDate(target.getDate() + 1);
+      }
+      let diff = Math.max(0, target.getTime() - now.getTime());
+      const totalMin = Math.floor(diff / 60000);
+      const hours = Math.floor(totalMin / 60);
+      const mins = totalMin % 60;
+      if (hours > 0) {
+        countdownEl.textContent = `Зазвенит через ${hours} ч ${mins} мин`;
+      } else if (totalMin > 0) {
+        countdownEl.textContent = `Зазвенит через ${mins} мин`;
+      } else {
+        countdownEl.textContent = 'Зазвенит через несколько секунд…';
+      }
+      countdownEl.classList.remove('idle');
+    }
+
+    function checkAlarmTrigger(now) {
+      if (!state.alarmEnabled || state.ringing) return;
+      const minuteKey = `${now.getHours()}:${now.getMinutes()}`;
+      if (now.getHours() === state.alarmHour && now.getMinutes() === state.alarmMinute) {
+        if (state.lastTriggeredMinute !== minuteKey) {
+          state.lastTriggeredMinute = minuteKey;
+          triggerAlarm();
         }
+      } else if (state.lastTriggeredMinute === minuteKey) {
+        state.lastTriggeredMinute = null;
       }
     }
+
     updateClock();
     setInterval(updateClock, 1000);
+
+    // ==================== ANTI-CHEAT: RESUME RINGING IF NEEDED ====================
+    (function checkResumeRinging() {
+      const saved = loadState();
+      const urlRing = new URLSearchParams(window.location.search).get('ring') === '1';
+      if (urlRing || (saved && saved.ringing)) {
+        // Resume the alarm immediately (after UI is ready)
+        setTimeout(() => {
+          initAudioCtx();
+          triggerAlarm(true);
+        }, 600);
+      }
+    })();
 
     // ==================== AUDIO CONTEXT & SILENT KEEP-ALIVE ====================
     function initAudioCtx() {
@@ -527,15 +660,13 @@
     }
 
     // ==================== WAV RENDERER (OfflineAudioContext) ====================
-    // Builds the melody into an OfflineAudioContext, then encodes to WAV.
     async function renderMelodyToWav(type) {
-      // Determine duration per melody (one full cycle)
       let cycleDuration;
-      if (type === 'field') cycleDuration = 16 * 0.22;         // 3.52 s
-      else if (type === 'gentle') cycleDuration = 12 * 0.6;    // 7.2 s
-      else if (type === 'classic') cycleDuration = 12 * 0.35;  // 4.2 s
-      else if (type === 'bass') cycleDuration = 8 * 0.8;       // 6.4 s
-      else cycleDuration = 12.0;                                // violin: sum of note durations
+      if (type === 'field') cycleDuration = 16 * 0.22;
+      else if (type === 'gentle') cycleDuration = 12 * 0.6;
+      else if (type === 'classic') cycleDuration = 12 * 0.35;
+      else if (type === 'bass') cycleDuration = 8 * 0.8;
+      else cycleDuration = 12.0;
 
       const sampleRate = 44100;
       const totalSamples = Math.ceil(cycleDuration * sampleRate);
@@ -545,13 +676,11 @@
       masterGain.gain.value = 0.8;
       masterGain.connect(offline.destination);
 
-      // Helper to schedule a tone in the offline context
       function tone(freq, tStart, dur, waveType, peakGain, attack, release, filterFreq, filterQ, lfoFreq, lfoDepth) {
         const osc = offline.createOscillator();
         const gain = offline.createGain();
         osc.type = waveType;
         osc.frequency.setValueAtTime(freq, tStart);
-
         let node = osc;
         if (filterFreq) {
           const filter = offline.createBiquadFilter();
@@ -561,7 +690,6 @@
           osc.connect(filter);
           node = filter;
         }
-
         if (lfoFreq) {
           const lfo = offline.createOscillator();
           const lfoGain = offline.createGain();
@@ -573,16 +701,12 @@
           lfo.start(tStart);
           lfo.stop(tStart + dur);
         }
-
-        // Envelope with true silence at the end
         gain.gain.setValueAtTime(0, tStart);
         gain.gain.linearRampToValueAtTime(peakGain, tStart + (attack || 0.01));
         gain.gain.setValueAtTime(peakGain, tStart + Math.max(attack || 0.01, dur - (release || 0.05)));
         gain.gain.linearRampToValueAtTime(0, tStart + dur);
-
         node.connect(gain);
         gain.connect(masterGain);
-
         osc.start(tStart);
         osc.stop(tStart + dur);
       }
@@ -592,7 +716,6 @@
                        783.99, 1046.50, 1318.51, 1046.50, 783.99, 659.25, 523.25, 659.25];
         const dur = 0.22;
         notes.forEach((f, i) => tone(f, i * dur, dur, 'sine', 0.7, 0.02, 0.05));
-        // Shimmer bed
         const shim = offline.createOscillator();
         const shimGain = offline.createGain();
         shim.type = 'sine';
@@ -604,17 +727,14 @@
         shimGain.connect(masterGain);
         shim.start(0);
         shim.stop(cycleDuration);
-
       } else if (type === 'gentle') {
         const notes = [392.00, 440.00, 493.88, 523.25, 493.88, 440.00, 392.00, 349.23, 392.00, 440.00, 493.88, 523.25];
         const dur = 0.6;
         notes.forEach((f, i) => tone(f, i * dur, dur, 'triangle', 0.4, 0.1, 0.15));
-
       } else if (type === 'classic') {
         const freqs = [880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100, 880, 1100];
         const dur = 0.35;
         freqs.forEach((f, i) => tone(f, i * dur, dur, 'square', 0.22, 0.01, 0.05));
-
       } else if (type === 'bass') {
         const baseFreq = 80;
         const step = 0.8;
@@ -635,7 +755,6 @@
           osc.start(t);
           osc.stop(t + step);
         }
-        // Sub-bass bed
         const sub = offline.createOscillator();
         const subGain = offline.createGain();
         sub.type = 'sine';
@@ -648,7 +767,6 @@
         subGain.connect(masterGain);
         sub.start(0);
         sub.stop(cycleDuration);
-
       } else if (type === 'violin') {
         const melody = [
           { freq: 523.25, dur: 0.8 }, { freq: 587.33, dur: 0.8 }, { freq: 659.25, dur: 1.0 },
@@ -663,13 +781,11 @@
         });
       }
 
-      // Render
       const rendered = await offline.startRendering();
       const wav = audioBufferToWav(rendered);
       return new Blob([wav], { type: 'audio/wav' });
     }
 
-    // Standard AudioBuffer -> WAV (16-bit PCM mono)
     function audioBufferToWav(buffer) {
       const numChannels = buffer.numberOfChannels;
       const sampleRate = buffer.sampleRate;
@@ -690,7 +806,7 @@
       writeString(8, 'WAVE');
       writeString(12, 'fmt ');
       view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);            // PCM
+      view.setUint16(20, 1, true);
       view.setUint16(22, numChannels, true);
       view.setUint32(24, sampleRate, true);
       view.setUint32(28, sampleRate * blockAlign, true);
@@ -720,7 +836,35 @@
       return arrayBuffer;
     }
 
-    // Start looping WAV alarm on <audio>
+    // ==================== VOLUME RAMP ====================
+    function startVolumeRamp() {
+      stopVolumeRamp();
+      alarmAudio.volume = 0.15;
+      const startVol = 0.15;
+      const targetVol = 1.0;
+      const duration = 25000; // 25 seconds
+      const startTime = Date.now();
+      state.volumeRampInterval = setInterval(() => {
+        if (!state.ringing) { stopVolumeRamp(); return; }
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        // Smooth ease-in-out
+        const eased = progress < 0.5
+          ? 2 * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        alarmAudio.volume = startVol + (targetVol - startVol) * eased;
+        if (progress >= 1) stopVolumeRamp();
+      }, 200);
+    }
+
+    function stopVolumeRamp() {
+      if (state.volumeRampInterval) {
+        clearInterval(state.volumeRampInterval);
+        state.volumeRampInterval = null;
+      }
+    }
+
+    // ==================== WAV PLAYBACK ====================
     async function startWavAlarm(type) {
       stopWavAlarm();
       try {
@@ -731,22 +875,15 @@
         alarmAudio.loop = true;
         alarmAudio.playsInline = true;
         alarmAudio.muted = false;
-        alarmAudio.volume = 1.0;
-        // Try to play (may need user gesture; on ring it's triggered by timer so try anyway)
-        try { await alarmAudio.play(); } catch(e) {
-          console.warn('WAV play failed:', e);
-        }
-        // Watchdog: every 500ms check if audio is paused and resume
+        alarmAudio.volume = 0.15;
+        try { await alarmAudio.play(); } catch(e) { console.warn('WAV play failed:', e); }
+        startVolumeRamp();
         if (state.audioWatchdog) clearInterval(state.audioWatchdog);
         state.audioWatchdog = setInterval(() => {
           if (!state.ringing) return;
-          if (alarmAudio.paused) {
-            alarmAudio.play().catch(() => {});
-          }
+          if (alarmAudio.paused) alarmAudio.play().catch(() => {});
         }, 500);
-      } catch(e) {
-        console.warn('WAV render error:', e);
-      }
+      } catch(e) { console.warn('WAV render error:', e); }
     }
 
     function stopWavAlarm() {
@@ -754,6 +891,7 @@
         clearInterval(state.audioWatchdog);
         state.audioWatchdog = null;
       }
+      stopVolumeRamp();
       try { alarmAudio.pause(); } catch(e) {}
       alarmAudio.removeAttribute('src');
       try { alarmAudio.load(); } catch(e) {}
@@ -763,7 +901,6 @@
       }
     }
 
-    // Preview (short) – just play one cycle, then stop
     async function previewMelody(type) {
       stopWavAlarm();
       try {
@@ -771,17 +908,15 @@
         const url = URL.createObjectURL(blob);
         alarmAudio.src = url;
         alarmAudio.loop = false;
+        alarmAudio.volume = 0.5;
         alarmAudio.currentTime = 0;
         try { await alarmAudio.play(); } catch(e) {}
-        // Revoke after playback finishes
         const cleanup = () => {
           URL.revokeObjectURL(url);
           alarmAudio.removeEventListener('ended', cleanup);
         };
         alarmAudio.addEventListener('ended', cleanup);
-      } catch(e) {
-        console.warn('Preview error:', e);
-      }
+      } catch(e) {}
     }
 
     // ==================== HAPTIC FEEDBACK ====================
@@ -792,6 +927,7 @@
           else if (type === 'light') tg.HapticFeedback.impactOccurred('light');
           else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
           else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+          else if (type === 'selection') tg.HapticFeedback.selectionChanged();
           else tg.HapticFeedback.impactOccurred('medium');
         } catch(e) {}
       }
@@ -806,16 +942,41 @@
       toastTimeout = setTimeout(() => toastEl.classList.remove('show'), duration);
     }
 
+    // ==================== BATTERY CHECK ====================
+    async function checkBattery() {
+      if (!navigator.getBattery) return;
+      try {
+        const battery = await navigator.getBattery();
+        state.batteryManager = battery;
+        const update = () => {
+          const level = Math.round(battery.level * 100);
+          if (level < 25 && !battery.charging) {
+            batteryWarning.classList.add('show');
+          } else {
+            batteryWarning.classList.remove('show');
+          }
+        };
+        update();
+        battery.addEventListener('levelchange', update);
+        battery.addEventListener('chargingchange', update);
+      } catch(e) {}
+    }
+    checkBattery();
+
     // ==================== UI: MELODY & TASK SELECTION ====================
     melodyGrid.addEventListener('click', (e) => {
       const el = e.target.closest('.choice');
       if (!el) return;
       const melody = el.dataset.melody;
-      if (!melody) return;
+      if (!melody || melody === state.melody) {
+        if (melody === state.melody) haptic('selection');
+        return;
+      }
       state.melody = melody;
       melodyGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
-      haptic('light');
+      haptic('selection');
+      saveState();
       previewMelody(melody);
     });
 
@@ -823,11 +984,15 @@
       const el = e.target.closest('.choice');
       if (!el) return;
       const task = el.dataset.task;
-      if (!task) return;
+      if (!task || task === state.task) {
+        if (task === state.task) haptic('selection');
+        return;
+      }
       state.task = task;
       taskGrid.querySelectorAll('.choice').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
-      haptic('light');
+      haptic('selection');
+      saveState();
     });
 
     // ==================== ALARM TOGGLE ====================
@@ -842,6 +1007,7 @@
         toggleAlarmBtn.classList.add('btn-primary');
         alarmBadge.classList.add('hidden');
         ensureKeepAlive();
+        saveState();
         showToast('Будильник выключен');
       } else {
         state.alarmHour = parseInt(hourSelect.value);
@@ -854,6 +1020,7 @@
         alarmBadge.classList.remove('hidden');
         alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
         ensureKeepAlive();
+        saveState();
         if (state.task === 'pushups' || state.task === 'squats') await requestCamera();
         showToast(`Будильник включён на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`);
       }
@@ -870,7 +1037,7 @@
     // ==================== NIGHT MODE ====================
     nightModeBtn.addEventListener('click', async () => {
       initAudioCtx();
-      haptic('medium');
+      haptic('selection');
       if (state.nightMode) exitNightMode();
       else enterNightMode();
     });
@@ -885,6 +1052,7 @@
       await requestWakeLock();
       startWakeVideo();
       ensureKeepAlive();
+      saveState();
       showToast('Ночной режим включён. Экран не погаснет.');
     }
 
@@ -898,6 +1066,7 @@
       releaseWakeLock();
       stopWakeVideo();
       ensureKeepAlive();
+      saveState();
       showToast('Ночной режим выключен');
     }
 
@@ -1031,7 +1200,7 @@
       if (state.phase === 'up' && avg < 95) {
         state.phase = 'down';
         updatePoseStatus('Отлично, вверх!');
-        haptic('medium');
+        haptic('selection');
       } else if (state.phase === 'down' && avg > 150) {
         state.phase = 'up';
         state.repCount++;
@@ -1058,7 +1227,7 @@
       if (state.phase === 'up' && avg < 100) {
         state.phase = 'down';
         updatePoseStatus('Отлично, вверх!');
-        haptic('medium');
+        haptic('selection');
       } else if (state.phase === 'down' && avg > 150) {
         state.phase = 'up';
         state.repCount++;
@@ -1098,6 +1267,11 @@
     async function triggerAlarm(isTest = false) {
       if (state.ringing) return;
       state.ringing = true;
+
+      // Save ringing flag for anti-cheat
+      try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
+      saveState();
+
       state.repCount = 0;
       state.phase = 'up';
 
@@ -1110,8 +1284,6 @@
       if (state.audioCtx && state.audioCtx.state === 'suspended') {
         try { await state.audioCtx.resume(); } catch(e) {}
       }
-
-      // Keep screen awake while ringing
       await requestWakeLock();
 
       if (state.nightMode) {
@@ -1123,16 +1295,13 @@
         stopWakeVideo();
       }
 
-      // Start looping WAV alarm
       await startWavAlarm(state.melody);
 
-      // Persistent haptic vibration every 1.5 s
       if (state.hapticInterval) clearInterval(state.hapticInterval);
       state.hapticInterval = setInterval(() => {
         if (!state.ringing) return;
-        haptic('error'); // notificationOccurred('error')
+        haptic('error');
       }, 1500);
-      // Immediate first pulse
       haptic('error');
 
       ringOverlay.classList.add('active');
@@ -1271,14 +1440,15 @@
       if (!state.ringing) return;
       state.ringing = false;
 
-      // Stop WAV alarm and watchdog
+      // Clear anti-cheat flag
+      try { localStorage.removeItem(RING_FLAG); } catch(e) {}
+
       stopWavAlarm();
 
       if (state.hapticInterval) {
         clearInterval(state.hapticInterval);
         state.hapticInterval = null;
       }
-
       stopCamera();
       ringOverlay.classList.remove('active');
       taskArea.innerHTML = '';
@@ -1303,12 +1473,12 @@
       if (state.nightMode) {
         nightOverlay.classList.add('active');
         startWakeVideo();
-        // Night mode keeps WakeLock, so don't release
       } else {
         releaseWakeLock();
       }
 
       ensureKeepAlive();
+      saveState();
     }
 
     stopAlarmBtn.addEventListener('click', () => {
@@ -1320,44 +1490,39 @@
       setTimeout(async () => {
         initAudioCtx();
         await triggerAlarm(true);
-      }, 500);
+      }, 800);
     }
 
     // ==================== VISIBILITY & UNLOAD ====================
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        // Re-acquire WakeLock if night mode or ringing
-        if ((state.nightMode || state.ringing) && !state.wakeLock) {
-          requestWakeLock();
-        }
+        if ((state.nightMode || state.ringing) && !state.wakeLock) requestWakeLock();
         if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
         if (state.nightMode && !state.wakeVideoStream) startWakeVideo();
-        // Force resume WAV alarm if ringing
-        if (state.ringing && alarmAudio.paused) {
+        if (state.ringing && alarmAudio.paused && alarmAudio.src) {
           alarmAudio.play().catch(() => {});
         }
       }
     });
 
     window.addEventListener('beforeunload', () => {
+      // Don't clear ring flag — allow resume if user comes back
       stopSilentAudio();
-      stopWavAlarm();
       if (state.hapticInterval) clearInterval(state.hapticInterval);
       stopCamera();
       releaseWakeLock();
       stopWakeVideo();
+      // Note: do NOT stop WAV here, ring flag persistence is enough
     });
 
     document.addEventListener('click', () => {
       if (state.nightMode && !state.wakeLock) requestWakeLock();
       initAudioCtx();
-      // Re-arm WAV playback if it was blocked
       if (state.ringing && alarmAudio.paused && alarmAudio.src) {
         alarmAudio.play().catch(() => {});
       }
     }, { once: true });
 
-    // Extra: on any touch during ringing, ensure audio is alive
     document.addEventListener('touchstart', () => {
       if (state.ringing && alarmAudio.paused && alarmAudio.src) {
         alarmAudio.play().catch(() => {});
