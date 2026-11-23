@@ -60,15 +60,70 @@
     .icon-secondary { color: var(--text-secondary); }
     .icon-sm { width: 15px; height: 15px; }
 
-    /* ==================== TIME PICKER ==================== */
-    .time-picker-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
-    .time-select {
-      flex: 1; background: #2C2C2E; border: 1px solid var(--card-border); border-radius: 14px;
+    /* ==================== PREMIUM GOLD BANNER ==================== */
+    .premium-gold-banner {
+      position: relative;
+      width: 100%;
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #FFD700 0%, #FF9F0A 100%);
+      box-shadow: 0 6px 28px rgba(255,215,0,0.38), 0 2px 8px rgba(255,159,10,0.3), inset 0 1px 0 rgba(255,255,255,0.35);
+      border: 1px solid rgba(255,215,0,0.5);
+      color: #1a1200;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 14px;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      overflow: hidden;
+    }
+    .premium-gold-banner:active { transform: scale(0.98); }
+    .premium-gold-banner::before {
+      content: ''; position: absolute; top: 0; left: -60%;
+      width: 60%; height: 100%;
+      background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+      animation: goldShine 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes goldShine {
+      0%, 70%, 100% { left: -60%; }
+      35% { left: 130%; }
+    }
+    .premium-gold-banner .crown { font-size: 26px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); }
+    .premium-gold-banner .banner-text { flex: 1; min-width: 0; }
+    .premium-gold-banner .banner-title {
+      font-size: 16px; font-weight: 800; letter-spacing: -0.2px; color: #1a1200;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .premium-gold-banner .banner-sub {
+      font-size: 12px; font-weight: 600; color: rgba(26,18,0,0.72); margin-top: 2px;
+    }
+    .premium-gold-banner .chevron { color: rgba(26,18,0,0.6); flex-shrink: 0; }
+    .premium-gold-banner.active-state {
+      background: linear-gradient(135deg, #30D158 0%, #1f9e40 100%);
+      box-shadow: 0 6px 28px rgba(48,209,88,0.38), 0 2px 8px rgba(48,209,88,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+      border-color: rgba(48,209,88,0.5);
+      color: #fff;
+    }
+    .premium-gold-banner.active-state .banner-title { color: #fff; }
+    .premium-gold-banner.active-state .banner-sub { color: rgba(255,255,255,0.85); }
+    .premium-gold-banner.active-state .chevron { color: rgba(255,255,255,0.7); }
+    .premium-gold-banner.active-state::before { display: none; }
+
+    /* ==================== TIME DISPLAY (tap to edit) ==================== */
+    .alarm-time-tap {
+      background: #2C2C2E; border: 1px solid var(--card-border); border-radius: 14px;
       padding: 16px 8px; color: var(--text); font-size: 26px; font-weight: 300; text-align: center;
       font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
-      appearance: none; -webkit-appearance: none; outline: none; cursor: pointer; letter-spacing: 0.5px;
+      cursor: pointer; width: 100%; display: block; letter-spacing: 0.5px;
+      transition: border-color 0.2s ease, background 0.2s ease;
+      font-family: inherit;
     }
-    .time-select option { background: #2C2C2E; color: var(--text); }
+    .alarm-time-tap:active { background: #3A3A3C; border-color: var(--accent); }
+
+    /* Hidden native time input – we trigger via .showPicker() or .click() */
+    .native-time-input {
+      position: absolute; opacity: 0; pointer-events: none;
+      width: 1px; height: 1px; left: -9999px;
+    }
 
     /* ==================== BUTTONS ==================== */
     .btn {
@@ -140,7 +195,7 @@
       background: rgba(44,44,46,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border); border-radius: 14px; padding: 13px 22px;
       font-size: 14px; color: var(--text); opacity: 0; transition: all 0.3s ease;
-      pointer-events: none; z-index: 2000; max-width: 80%; text-align: center;
+      pointer-events: none; z-index: 3000; max-width: 80%; text-align: center;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -226,23 +281,56 @@
     .modal-overlay.active { display: flex; animation: fadeIn 0.25s ease; }
     .modal {
       background: var(--card); border: 1px solid var(--card-border); border-radius: 22px;
-      padding: 24px 20px; width: 100%; max-width: 380px; max-height: 85vh; overflow-y: auto;
+      padding: 24px 20px; width: 100%; max-width: 400px; max-height: 88vh; overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     }
-    .modal h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.3px; }
-    .modal p { font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
-    .premium-feature { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 14px; line-height: 1.4; }
-    .premium-feature .icon { color: var(--accent); margin-top: 1px; }
-    .premium-status {
-      padding: 12px 14px; border-radius: 12px; background: rgba(48,209,88,0.12);
-      border: 1px solid rgba(48,209,88,0.25); color: var(--success); font-size: 13px;
-      font-weight: 600; margin-bottom: 14px; text-align: center;
+    .modal::-webkit-scrollbar { display: none; }
+    .modal h2 { font-size: 24px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.4px; display: flex; align-items: center; gap: 8px; }
+    .modal .modal-subtitle { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 18px; }
+    .premium-feature { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 14px; line-height: 1.45; color: var(--text); }
+    .premium-feature .check-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; color: var(--accent); margin-top: 1px; }
+    .premium-feature .check-icon svg { width: 12px; height: 12px; }
+
+    /* Plan cards inside modal */
+    .plan-card {
+      border-radius: 16px; padding: 16px; margin-bottom: 12px;
+      border: 1px solid var(--card-border); background: #242426;
     }
-    .premium-status.inactive { background: rgba(255,159,10,0.1); border-color: rgba(255,159,10,0.25); color: var(--accent); }
+    .plan-card.trial-card { border-color: rgba(255,159,10,0.35); background: linear-gradient(180deg, rgba(255,159,10,0.08) 0%, rgba(255,159,10,0.02) 100%); }
+    .plan-card.sub-card { border-color: rgba(255,215,0,0.35); background: linear-gradient(180deg, rgba(255,215,0,0.08) 0%, rgba(255,215,0,0.02) 100%); }
+    .plan-card-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .plan-card-title .plan-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(255,215,0,0.18); color: #FFD700; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
+    .plan-card-title .plan-badge.free { background: rgba(48,209,88,0.18); color: var(--success); }
+    .plan-card-desc { font-size: 13px; line-height: 1.55; color: var(--text-secondary); margin-bottom: 14px; }
+    .plan-card-desc b { color: var(--text); font-weight: 600; }
+
+    .btn-gold {
+      width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 800;
+      cursor: pointer; transition: transform 0.15s ease, box-shadow 0.2s ease;
+      background: linear-gradient(135deg, #FFD700 0%, #FF9F0A 100%);
+      color: #1a1200; letter-spacing: 0.1px;
+      box-shadow: 0 4px 18px rgba(255,215,0,0.35);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: inherit;
+    }
+    .btn-gold:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(255,215,0,0.3); }
+    .btn-gold:disabled { opacity: 0.5; box-shadow: none; }
+
+    /* Status pills */
+    .status-pill {
+      padding: 10px 14px; border-radius: 12px; font-size: 13px; font-weight: 700;
+      margin-bottom: 14px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .status-pill.active { background: rgba(48,209,88,0.12); border: 1px solid rgba(48,209,88,0.3); color: var(--success); }
+    .status-pill.trial { background: rgba(255,159,10,0.12); border: 1px solid rgba(255,159,10,0.3); color: var(--accent); }
+    .status-pill.inactive { background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); color: var(--text-secondary); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .status-dot.pulsing { animation: pulse 1.6s infinite; }
+
     .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
     .modal-close {
       background: transparent; border: none; color: var(--text-tertiary);
-      font-size: 14px; cursor: pointer; padding: 12px; font-family: inherit; margin-top: 6px;
+      font-size: 14px; cursor: pointer; padding: 12px; font-family: inherit; margin-top: 6px; width: 100%;
     }
 
     /* ==================== ALARM LIST ITEM ==================== */
@@ -250,6 +338,7 @@
       display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px;
       background: #2C2C2E; border: 1px solid var(--card-border); margin-bottom: 10px;
     }
+    .alarm-item.selected { border-color: var(--accent); }
     .alarm-item-info { flex: 1; min-width: 0; }
     .alarm-item-time { font-size: 24px; font-weight: 300; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: 0.5px; }
     .alarm-item-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
@@ -304,22 +393,16 @@
         <div class="countdown idle" id="countdown">Будильник выключен</div>
       </div>
 
-      <!-- Premium banner -->
-      <div class="card" id="premiumBanner" style="cursor:pointer;">
-        <div class="toggle-row">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-            </svg>
-            <div>
-              <div class="toggle-label" id="premiumBannerTitle">Premium</div>
-              <div class="toggle-sub" id="premiumBannerSub">3 дня бесплатно</div>
-            </div>
-          </div>
-          <svg class="icon icon-secondary icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
+      <!-- PREMIUM GOLD BANNER -->
+      <div class="premium-gold-banner" id="premiumBanner" role="button" tabindex="0" aria-label="Premium">
+        <div class="crown" id="premiumBannerIcon">👑</div>
+        <div class="banner-text">
+          <div class="banner-title" id="premiumBannerTitle">Premium — 3 дня бесплатно</div>
+          <div class="banner-sub" id="premiumBannerSub">До 5 будильников · своя музыка · страховка ботом</div>
         </div>
+        <svg class="icon icon-sm chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </div>
 
       <!-- Alarm badge -->
@@ -345,6 +428,19 @@
           Добавить будильник
         </button>
         <div class="hint">Бесплатно — 1 будильник. Premium — до 5.</div>
+      </div>
+
+      <!-- Selected alarm time (tap to edit) -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span class="card-title">Время подъёма</span>
+        </div>
+        <button type="button" class="alarm-time-tap" id="alarmTimeTap">07:00</button>
+        <input type="time" id="nativeTimeInput" class="native-time-input" step="60">
+        <div class="hint">Нажмите на время, чтобы изменить</div>
       </div>
 
       <!-- Melody -->
@@ -502,13 +598,28 @@
   <!-- Premium Modal -->
   <div class="modal-overlay" id="premiumModal">
     <div class="modal">
-      <h2 id="premiumModalTitle">Premium</h2>
-      <p id="premiumModalDesc">Разблокируйте все возможности умного будильника.</p>
-      <div id="premiumStatusBox" class="premium-status inactive">Premium не активен</div>
-      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>До 5 будильников с отдельными настройками</span></div>
-      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Своя мелодия из файла (MP3, M4A, WAV)</span></div>
-      <div class="premium-feature"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Страховка ботом — звонок, если приложение закрыто</span></div>
-      <div class="modal-buttons" id="premiumModalButtons"></div>
+      <h2 id="premiumModalTitle">👑 Premium</h2>
+      <p class="modal-subtitle" id="premiumModalSubtitle">Разблокируйте все возможности умного будильника.</p>
+
+      <div id="premiumStatusContainer"></div>
+
+      <div class="premium-feature">
+        <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span><b>До 5 будильников</b> — с отдельным временем, мелодией и заданием</span>
+      </div>
+      <div class="premium-feature">
+        <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span><b>Своя музыка</b> — загрузка MP3/M4A прямо с телефона</span>
+      </div>
+      <div class="premium-feature">
+        <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span><b>Пуш-страховка ботом</b> — звонок в Telegram, даже если приложение закрыто</span>
+      </div>
+
+      <div class="separator"></div>
+
+      <div id="premiumPlanCards"></div>
+
       <button class="modal-close" id="premiumModalClose">Закрыть</button>
     </div>
   </div>
@@ -550,7 +661,6 @@
     const clockDisplay = document.getElementById('clockDisplay');
     const dateDisplay = document.getElementById('dateDisplay');
     const countdownEl = document.getElementById('countdown');
-    const toggleAlarmBtn = document.getElementById('toggleAlarmBtn');
     const melodyGrid = document.getElementById('melodyGrid');
     const taskGrid = document.getElementById('taskGrid');
     const testBtn = document.getElementById('testBtn');
@@ -572,14 +682,17 @@
     const headerStatus = document.getElementById('headerStatus');
     const alarmList = document.getElementById('alarmList');
     const addAlarmBtn = document.getElementById('addAlarmBtn');
+    const alarmTimeTap = document.getElementById('alarmTimeTap');
+    const nativeTimeInput = document.getElementById('nativeTimeInput');
     const premiumBanner = document.getElementById('premiumBanner');
+    const premiumBannerIcon = document.getElementById('premiumBannerIcon');
     const premiumBannerTitle = document.getElementById('premiumBannerTitle');
     const premiumBannerSub = document.getElementById('premiumBannerSub');
     const premiumModal = document.getElementById('premiumModal');
     const premiumModalTitle = document.getElementById('premiumModalTitle');
-    const premiumModalDesc = document.getElementById('premiumModalDesc');
-    const premiumStatusBox = document.getElementById('premiumStatusBox');
-    const premiumModalButtons = document.getElementById('premiumModalButtons');
+    const premiumModalSubtitle = document.getElementById('premiumModalSubtitle');
+    const premiumStatusContainer = document.getElementById('premiumStatusContainer');
+    const premiumPlanCards = document.getElementById('premiumPlanCards');
     const premiumModalClose = document.getElementById('premiumModalClose');
     const customMelodyRow = document.getElementById('customMelodyRow');
     const customMelodyName = document.getElementById('customMelodyName');
@@ -594,11 +707,13 @@
     const backupBotToggle = document.getElementById('backupBotToggle');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v8';
-    const RING_FLAG = 'smart_alarm_ringing_v8';
-    const PREMIUM_KEY = 'smart_alarm_premium_v8';
-    const BARCODE_KEY = 'smart_alarm_barcode_v8';
-    const CUSTOM_MELODY_KEY = 'smart_alarm_custom_melody_v8';
+    const STORAGE_KEY = 'smart_alarm_state_v9';
+    const RING_FLAG = 'smart_alarm_ringing_v9';
+    const PREMIUM_KEY = 'smart_alarm_premium_v9';
+    const BARCODE_KEY = 'smart_alarm_barcode_v9';
+    const CUSTOM_MELODY_KEY = 'smart_alarm_custom_melody_v9';
+    const TRIAL_USED_KEY = 'smart_alarm_trial_used_v9';
+    const AUTORENEW_KEY = 'smart_alarm_autorenew_v9';
 
     // ==================== STATE ====================
     const state = {
@@ -628,7 +743,8 @@
       // custom melody
       customMelodyBlob: null, customMelodyUrl: null,
       // premium
-      premium: { trialEndsAt: null, subscription: false, cancelAt: null },
+      premium: { trialEndsAt: null, subscription: false, cancelAt: null, autoRenewCanceled: false },
+      trialUsed: false,
       backupEnabled: false,
     };
 
@@ -655,14 +771,23 @@
     }
 
     function savePremium() {
-      try { localStorage.setItem(PREMIUM_KEY, JSON.stringify(state.premium)); } catch(e) {}
+      try {
+        localStorage.setItem(PREMIUM_KEY, JSON.stringify(state.premium));
+        localStorage.setItem(TRIAL_USED_KEY, state.trialUsed ? '1' : '0');
+        localStorage.setItem(AUTORENEW_KEY, state.premium.autoRenewCanceled ? '1' : '0');
+      } catch(e) {}
     }
     function loadPremium() {
+      let p = { trialEndsAt: null, subscription: false, cancelAt: null, autoRenewCanceled: false };
       try {
         const raw = localStorage.getItem(PREMIUM_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) p = { ...p, ...JSON.parse(raw) };
       } catch(e) {}
-      return { trialEndsAt: null, subscription: false, cancelAt: null };
+      try {
+        state.trialUsed = localStorage.getItem(TRIAL_USED_KEY) === '1';
+        p.autoRenewCanceled = localStorage.getItem(AUTORENEW_KEY) === '1';
+      } catch(e) {}
+      return p;
     }
 
     function isPremium() {
@@ -675,44 +800,64 @@
     function premiumLabel() {
       const now = Date.now();
       if (state.premium.subscription) {
-        if (state.premium.cancelAt) return 'Premium · автопродление отключено';
+        if (state.premium.autoRenewCanceled) return 'Premium · автопродление выключено';
         return 'Premium активен';
       }
       if (state.premium.trialEndsAt && now < state.premium.trialEndsAt) {
-        const daysLeft = Math.ceil((state.premium.trialEndsAt - now) / 86400000);
-        return `Пробный период · ${daysLeft} дн.`;
+        const msLeft = state.premium.trialEndsAt - now;
+        const daysLeft = Math.ceil(msLeft / 86400000);
+        const hoursLeft = Math.ceil(msLeft / 3600000);
+        if (daysLeft >= 2) return `Пробный период · ${daysLeft} дн.`;
+        return `Пробный период · ${hoursLeft} ч.`;
       }
       return 'Premium не активен';
     }
 
+    // ==================== PREMIUM UI ====================
     function refreshPremiumUI() {
       const premium = isPremium();
-      premiumBannerTitle.textContent = premium ? 'Premium активен' : 'Premium';
-      premiumBannerSub.textContent = premium ? premiumLabel() : '3 дня бесплатно';
+      const trialActive = state.premium.trialEndsAt && Date.now() < state.premium.trialEndsAt;
+      // Banner
+      if (premium) {
+        premiumBanner.classList.add('active-state');
+        premiumBannerIcon.textContent = '✓';
+        premiumBannerTitle.textContent = premiumLabel();
+        premiumBannerSub.textContent = state.premium.subscription
+          ? (state.premium.autoRenewCanceled ? 'Доступ до конца оплаченного периода' : 'Все функции разблокированы')
+          : 'Пробный период активен';
+      } else {
+        premiumBanner.classList.remove('active-state');
+        premiumBannerIcon.textContent = '👑';
+        premiumBannerTitle.textContent = 'Premium — 3 дня бесплатно';
+        premiumBannerSub.textContent = 'До 5 будильников · своя музыка · страховка ботом';
+      }
+      // Feature gates
       backupBotToggle.classList.toggle('disabled', !premium);
       customMelodyLock.style.display = premium ? 'none' : '';
       customMelodyHint.textContent = premium
         ? 'Нажмите, чтобы загрузить свой файл (MP3, M4A, WAV)'
         : 'Premium: загрузите свой файл (MP3, M4A, WAV).';
-      updatePremiumModal();
       renderAlarmList();
+      if (premiumModal.classList.contains('active')) updatePremiumModal();
     }
 
     function activatePremium(days = 30) {
       state.premium.subscription = true;
       state.premium.trialEndsAt = null;
       state.premium.cancelAt = null;
+      state.premium.autoRenewCanceled = false;
       savePremium();
       refreshPremiumUI();
       showToast('Premium активирован!', 2500);
     }
 
     function startTrial() {
-      if (state.premium.trialEndsAt && state.premium.trialEndsAt > Date.now()) {
-        showToast('Пробный период уже активен'); return;
+      if (state.trialUsed || (state.premium.trialEndsAt && state.premium.trialEndsAt > Date.now())) {
+        showToast('Пробный период уже использован'); return;
       }
       state.premium.trialEndsAt = Date.now() + 3 * 86400000;
       state.premium.subscription = false;
+      state.trialUsed = true;
       savePremium();
       refreshPremiumUI();
       showToast('Пробный период на 3 дня активирован!', 3000);
@@ -738,7 +883,6 @@
         backupBotToggle.classList.add('on');
         backupBotToggle.setAttribute('aria-checked', 'true');
       }
-      // Set initial selection
       state.selectedAlarmId = state.alarms[0]?.id;
       renderAlarmList();
       restoreBarcodeUI();
@@ -761,7 +905,7 @@
       alarmList.innerHTML = '';
       state.alarms.forEach((alarm, idx) => {
         const el = document.createElement('div');
-        el.className = 'alarm-item';
+        el.className = 'alarm-item' + (alarm.id === state.selectedAlarmId ? ' selected' : '');
         const taskNames = { math: 'Математика', memory: 'Память', barcode: 'Штрихкод' };
         const melodyNames = { field: 'Летнее поле', gentle: 'Аккуратная', classic: 'Обычная', bass: 'Звонкий бас', violin: 'Скрипка' };
         const isLocked = !premium && idx >= maxFree;
@@ -793,11 +937,14 @@
     function selectAlarm(id) {
       state.selectedAlarmId = id;
       updateSelectedAlarmUI();
+      renderAlarmList();
     }
 
     function updateSelectedAlarmUI() {
       const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
       if (!alarm) return;
+      alarmTimeTap.textContent = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
+      nativeTimeInput.value = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
       document.querySelectorAll('#melodyGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.melody === alarm.melody && !alarm.customMelody));
       document.querySelectorAll('#taskGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.task === alarm.task));
       customMelodyRow.classList.toggle('active', !!alarm.customMelody);
@@ -841,6 +988,47 @@
     }
 
     addAlarmBtn.addEventListener('click', addAlarm);
+
+    // ==================== TIME PICKER ====================
+    function openTimePicker() {
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+      if (!alarm) return;
+      nativeTimeInput.value = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
+      // Try modern showPicker() first
+      if (typeof nativeTimeInput.showPicker === 'function') {
+        try { nativeTimeInput.showPicker(); return; } catch(e) {}
+      }
+      // Fallback: focus + click
+      nativeTimeInput.focus();
+      nativeTimeInput.click();
+    }
+
+    alarmTimeTap.addEventListener('click', () => {
+      haptic('selection');
+      openTimePicker();
+    });
+
+    nativeTimeInput.addEventListener('change', () => {
+      const val = nativeTimeInput.value; // "HH:MM"
+      if (!val) return;
+      const parts = val.split(':');
+      if (parts.length < 2) return;
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) return;
+      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
+      if (!alarm) return;
+      alarm.hour = h;
+      alarm.minute = m;
+      haptic('success');
+      alarmTimeTap.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      renderAlarmList();
+      saveState();
+      updateAlarmBadge();
+      updateCountdown(new Date());
+      syncBackupBot(alarm);
+      showToast(`Время сохранено: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    });
 
     // ==================== CLOCK + COUNTDOWN ====================
     function updateClock() {
@@ -1195,7 +1383,6 @@
       customMelodyInput.value = '';
     });
 
-    // IndexedDB for custom melody
     function openMelodyDB() {
       return new Promise((resolve, reject) => {
         const req = indexedDB.open('smart_alarm_melody_db', 1);
@@ -1221,7 +1408,6 @@
       } catch(e) { return null; }
     }
 
-    // Load custom melody on startup
     (async () => {
       const saved = await loadCustomMelodyFromDB();
       if (saved && saved.blob) {
@@ -1232,13 +1418,11 @@
     })();
 
     // ==================== BARCODE SCANNER ====================
-    const BARCODE_REF_KEY = BARCODE_KEY;
-
     function getBarcodeRef() {
-      try { return localStorage.getItem(BARCODE_REF_KEY); } catch(e) { return null; }
+      try { return localStorage.getItem(BARCODE_KEY); } catch(e) { return null; }
     }
     function setBarcodeRef(code) {
-      try { if (code) localStorage.setItem(BARCODE_REF_KEY, code); else localStorage.removeItem(BARCODE_REF_KEY); } catch(e) {}
+      try { if (code) localStorage.setItem(BARCODE_KEY, code); else localStorage.removeItem(BARCODE_KEY); } catch(e) {}
     }
     function restoreBarcodeUI() {
       const ref = getBarcodeRef();
@@ -1250,7 +1434,6 @@
       state.scanMode = mode;
       container.innerHTML = '<div id="qrReader"></div>';
 
-      // Try native BarcodeDetector
       if ('BarcodeDetector' in window) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -1282,7 +1465,6 @@
         } catch(e) {}
       }
 
-      // Fallback: html5-qrcode
       try {
         if (typeof Html5Qrcode === 'undefined') {
           showToast('Сканер недоступен'); return;
@@ -1309,7 +1491,6 @@
         try { state.html5QrCode.stop().then(() => state.html5QrCode.clear()); } catch(e) {}
         state.html5QrCode = null;
       }
-      // Stop native stream if any
       barcodeSetupPreview.querySelectorAll('video').forEach(v => {
         if (v.srcObject) { v.srcObject.getTracks().forEach(t => t.stop()); v.srcObject = null; }
       });
@@ -1334,7 +1515,6 @@
     });
 
     // ==================== TASK SCREENS ====================
-    // --- Math ---
     function generateMathProblems(count = 3) {
       const problems = [];
       for (let i = 0; i < count; i++) {
@@ -1382,10 +1562,9 @@
       renderProblem();
     }
 
-    // --- Memory 3×3 ---
     function setupMemoryTask() {
       stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
-      const steps = 4 + Math.floor(Math.random() * 2); // 4-5 steps
+      const steps = 4 + Math.floor(Math.random() * 2);
       state.memorySequence = [];
       for (let i = 0; i < steps; i++) state.memorySequence.push(Math.floor(Math.random() * 9));
       state.memoryIndex = 0; state.memoryAccepting = false;
@@ -1403,7 +1582,6 @@
         tile.addEventListener('click', () => onMemoryTileClick(i));
         grid.appendChild(tile); state.memoryTiles.push(tile);
       }
-      // Play sequence
       const playSeq = async () => {
         const statusEl = document.getElementById('memoryStatus');
         for (let i = 0; i < state.memorySequence.length; i++) {
@@ -1443,7 +1621,6 @@
         if (statusEl) statusEl.textContent = 'Ошибка. Повторите последовательность.';
         setTimeout(() => {
           tile.classList.remove('wrong');
-          // Replay sequence
           state.memorySequence = [];
           const steps = 4 + Math.floor(Math.random() * 2);
           for (let i = 0; i < steps; i++) state.memorySequence.push(Math.floor(Math.random() * 9));
@@ -1465,7 +1642,6 @@
       }
     }
 
-    // --- Barcode task ---
     async function setupBarcodeTask() {
       stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
       const ref = getBarcodeRef();
@@ -1489,12 +1665,13 @@
       await startBarcodeScanner(container, 'task', (code) => {
         if (code === ref) {
           haptic('success');
-          document.getElementById('barcodeRingStatus').textContent = 'Верно! Будильник отключён.';
+          const st = document.getElementById('barcodeRingStatus');
+          if (st) st.textContent = 'Верно! Будильник отключён.';
           setTimeout(() => completeTask(), 400);
         } else {
           haptic('error');
-          document.getElementById('barcodeRingStatus').textContent = 'Неверный код. Попробуйте снова.';
-          // Restart scanner
+          const st = document.getElementById('barcodeRingStatus');
+          if (st) st.textContent = 'Неверный код. Попробуйте снова.';
           setTimeout(() => {
             const c = document.getElementById('barcodeRingPreview');
             if (c) startBarcodeScanner(c, 'task', (code2) => {
@@ -1506,7 +1683,6 @@
       });
     }
 
-    // --- Squats ---
     function showSquatScreen() {
       state.repCount = 0; state.motionPhase = 'up'; state.lastRepTime = 0;
       taskArea.innerHTML = `
@@ -1591,9 +1767,7 @@
       state.motionActive = false;
       if (state.motionHandler) { window.removeEventListener('devicemotion', state.motionHandler, true); state.motionHandler = null; }
     }
-
-    // --- Pushups (kept for legacy but not offered) ---
-    async function startPushupDetector() { /* placeholder if needed */ }
+    async function startPushupDetector() { /* not offered */ }
     function stopPushupDetector() {
       if (state.brightnessInterval) { clearInterval(state.brightnessInterval); state.brightnessInterval = null; }
       if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
@@ -1623,7 +1797,6 @@
       }
       const alarm = state.alarms.find(a => a.id === state.ringingAlarmId) || state.alarms.find(a => a.enabled) || state.alarms[0];
       if (alarm && alarm.customMelody && state.customMelodyBlob) {
-        // Play custom melody
         stopWavAlarm();
         if (state.customMelodyUrl) {
           alarmAudio.src = state.customMelodyUrl; alarmAudio.loop = true; alarmAudio.volume = 0.3;
@@ -1665,7 +1838,6 @@
       if (state.hapticInterval) { clearInterval(state.hapticInterval); state.hapticInterval = null; }
       ringOverlay.classList.remove('active');
       taskArea.innerHTML = '';
-      // Disable the alarm that rang
       const alarm = state.alarms.find(a => a.id === state.ringingAlarmId);
       if (alarm) alarm.enabled = false;
       state.ringingAlarmId = null;
@@ -1683,18 +1855,6 @@
     }
 
     stopAlarmBtn.addEventListener('click', () => { stopAlarm(); });
-
-    // ==================== ALARM TOGGLE (global) ====================
-    toggleAlarmBtn?.addEventListener('click', () => {
-      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
-      if (!alarm) return;
-      if (!isPremium() && state.alarms.indexOf(alarm) > 0) { openPremiumModal(); return; }
-      alarm.enabled = !alarm.enabled;
-      haptic('medium');
-      renderAlarmList();
-      saveState();
-      syncBackupBot(alarm);
-    });
 
     // ==================== TEST ====================
     testBtn.addEventListener('click', async () => {
@@ -1743,7 +1903,7 @@
       wakeVideo.pause(); wakeVideo.srcObject = null;
     }
 
-    // ==================== PREMIUM ====================
+    // ==================== PREMIUM MODAL ====================
     function openPremiumModal() {
       premiumModal.classList.add('active');
       updatePremiumModal();
@@ -1754,45 +1914,116 @@
 
     function updatePremiumModal() {
       const premium = isPremium();
-      premiumModalTitle.textContent = premium ? 'Premium активен' : 'Premium';
-      premiumModalDesc.textContent = premium
-        ? 'Все функции разблокированы. Управляйте подпиской здесь или в Настройках Telegram → Telegram Stars.'
-        : 'Разблокируйте все возможности умного будильника.';
-      premiumStatusBox.textContent = premiumLabel();
-      premiumStatusBox.className = 'premium-status' + (premium ? '' : ' inactive');
-      premiumModalButtons.innerHTML = '';
+      const trialActive = state.premium.trialEndsAt && Date.now() < state.premium.trialEndsAt;
+      const subActive = state.premium.subscription;
+
+      // Title/subtitle
       if (premium) {
-        if (state.premium.subscription && !state.premium.cancelAt) {
-          const cancelBtn = document.createElement('button');
-          cancelBtn.className = 'btn btn-secondary';
-          cancelBtn.textContent = 'Отключить автопродление';
-          cancelBtn.addEventListener('click', cancelSubscription);
-          premiumModalButtons.appendChild(cancelBtn);
-        } else if (state.premium.subscription && state.premium.cancelAt) {
-          const note = document.createElement('div');
-          note.style.cssText = 'font-size:13px;color:var(--text-secondary);text-align:center;padding:8px;';
-          note.textContent = 'Автопродление отключено. Доступ сохранится до конца оплаченного периода. Подпиской также можно управлять в Настройках Telegram → Telegram Stars.';
-          premiumModalButtons.appendChild(note);
+        premiumModalTitle.textContent = '👑 Premium активен';
+        premiumModalSubtitle.textContent = 'Спасибо за поддержку! Все функции разблокированы.';
+      } else {
+        premiumModalTitle.textContent = '👑 Premium';
+        premiumModalSubtitle.textContent = 'Разблокируйте все возможности умного будильника.';
+      }
+
+      // Status pill
+      let statusHtml = '';
+      if (trialActive) {
+        const msLeft = state.premium.trialEndsAt - Date.now();
+        const hoursLeft = Math.ceil(msLeft / 3600000);
+        const endDate = new Date(state.premium.trialEndsAt);
+        const endStr = `${String(endDate.getDate()).padStart(2,'0')}.${String(endDate.getMonth()+1).padStart(2,'0')} ${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')}`;
+        statusHtml = `<div class="status-pill trial"><span class="status-dot pulsing"></span>Пробный период · до ${endStr} (${hoursLeft} ч)</div>`;
+      } else if (subActive) {
+        if (state.premium.autoRenewCanceled) {
+          statusHtml = `<div class="status-pill inactive"><span class="status-dot"></span>Автопродление: ВЫКЛЮЧЕНО (доступ сохранится до конца оплаченного периода)</div>`;
+        } else {
+          statusHtml = `<div class="status-pill active"><span class="status-dot pulsing"></span>Автопродление: ВКЛЮЧЕНО</div>`;
         }
-        if (state.premium.trialEndsAt && Date.now() < state.premium.trialEndsAt) {
-          const subBtn = document.createElement('button');
-          subBtn.className = 'btn btn-primary';
-          subBtn.textContent = 'Оформить подписку 150 ⭐/мес';
-          subBtn.addEventListener('click', subscribePremium);
-          premiumModalButtons.appendChild(subBtn);
+      }
+      premiumStatusContainer.innerHTML = statusHtml;
+
+      // Plan cards
+      let cardsHtml = '';
+
+      if (trialActive) {
+        // Trial active: show explanation + cancel renewal / upgrade options
+        cardsHtml += `
+          <div class="plan-card trial-card">
+            <div class="plan-card-title">Пробный период <span class="plan-badge free">Активен</span></div>
+            <div class="plan-card-desc">
+              Автосписаний нет. Пробный период отключится сам через 72 часа — деньги и звёзды не спишутся.
+              После окончания вы сможете оформить подписку за <b>150 ⭐</b>.
+            </div>
+          </div>
+        `;
+        // Upgrade to subscription option
+        cardsHtml += `
+          <div class="plan-card sub-card">
+            <div class="plan-card-title">Полный доступ — 150 ⭐ / мес <span class="plan-badge">Выгодно</span></div>
+            <div class="plan-card-desc">
+              Оформите подписку сейчас, чтобы не прерывать доступ после пробного периода. Подписка продлевается автоматически раз в 30 дней.
+            </div>
+            <button class="btn-gold" id="btnSubscribe">Оформить за 150 ⭐</button>
+          </div>
+        `;
+      } else if (subActive) {
+        // Subscription active
+        if (state.premium.autoRenewCanceled) {
+          cardsHtml += `
+            <div class="plan-card sub-card">
+              <div class="plan-card-title">Полный доступ — 150 ⭐ / мес</div>
+              <div class="plan-card-desc">
+                Автопродление отключено. Доступ сохранится до конца оплаченного периода.
+                Подпиской также можно управлять в <b>Настройках Telegram → Telegram Stars</b>.
+              </div>
+            </div>
+          `;
+        } else {
+          cardsHtml += `
+            <div class="plan-card sub-card">
+              <div class="plan-card-title">Полный доступ — 150 ⭐ / мес</div>
+              <div class="plan-card-desc">
+                Подписка продлевается автоматически раз в 30 дней. Вы можете отключить автопродление в любой момент в один клик прямо здесь или в Настройках Telegram → Telegram Stars.
+              </div>
+              <button class="btn btn-secondary" id="btnCancelRenew">Отключить автопродление</button>
+            </div>
+          `;
         }
       } else {
-        const trialBtn = document.createElement('button');
-        trialBtn.className = 'btn btn-primary';
-        trialBtn.textContent = 'Активировать 3 дня бесплатно';
-        trialBtn.addEventListener('click', startTrial);
-        premiumModalButtons.appendChild(trialBtn);
-        const subBtn = document.createElement('button');
-        subBtn.className = 'btn btn-secondary';
-        subBtn.textContent = 'Подписаться за 150 ⭐ / мес';
-        subBtn.addEventListener('click', subscribePremium);
-        premiumModalButtons.appendChild(subBtn);
+        // No premium: show trial + subscription
+        if (!state.trialUsed) {
+          cardsHtml += `
+            <div class="plan-card trial-card">
+              <div class="plan-card-title">Попробовать 3 дня бесплатно <span class="plan-badge free">0 ⭐</span></div>
+              <div class="plan-card-desc">
+                Без привязки карты и звёзд. Ровно через 72 часа пробный период отключится автоматически —
+                деньги и звёзды не спишутся. После теста вы сможете при желании оформить подписку за <b>150 ⭐</b>.
+              </div>
+              <button class="btn-gold" id="btnStartTrial">Активировать 3 дня бесплатно</button>
+            </div>
+          `;
+        }
+        cardsHtml += `
+          <div class="plan-card sub-card">
+            <div class="plan-card-title">Полный доступ — 150 ⭐ / мес <span class="plan-badge">Premium</span></div>
+            <div class="plan-card-desc">
+              Подписка продлевается автоматически раз в 30 дней. Вы можете отключить автопродление
+              в любой момент в один клик прямо здесь или в Настройках Telegram → Telegram Stars.
+            </div>
+            <button class="btn-gold" id="btnSubscribe">Оформить за 150 ⭐</button>
+          </div>
+        `;
       }
+      premiumPlanCards.innerHTML = cardsHtml;
+
+      // Wire buttons
+      const btnStartTrial = document.getElementById('btnStartTrial');
+      if (btnStartTrial) btnStartTrial.addEventListener('click', () => { startTrial(); updatePremiumModal(); });
+      const btnSubscribe = document.getElementById('btnSubscribe');
+      if (btnSubscribe) btnSubscribe.addEventListener('click', subscribePremium);
+      const btnCancelRenew = document.getElementById('btnCancelRenew');
+      if (btnCancelRenew) btnCancelRenew.addEventListener('click', cancelSubscription);
     }
 
     async function subscribePremium() {
@@ -1807,7 +2038,7 @@
         const data = await res.json();
         if (data.url) {
           tg.openInvoice(data.url, (status) => {
-            if (status === 'paid') activatePremium(30);
+            if (status === 'paid') { activatePremium(30); updatePremiumModal(); }
             else showToast('Оплата не завершена');
           });
         } else {
@@ -1825,14 +2056,12 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'cancel_subscription', telegram_id: TG_ID }),
         });
-        if (res.ok) {
-          state.premium.cancelAt = Date.now();
-          savePremium();
-          refreshPremiumUI();
-          showToast('Автопродление отключено. Доступ сохранится до конца оплаченного периода.', 4000);
-        } else {
-          showToast('Не удалось отключить автопродление');
-        }
+        state.premium.autoRenewCanceled = true;
+        state.premium.cancelAt = Date.now();
+        savePremium();
+        refreshPremiumUI();
+        updatePremiumModal();
+        showToast('Автопродление отключено. Доступ сохранится до конца оплаченного периода.', 4000);
       } catch(e) { showToast('Ошибка сети'); }
     }
 
@@ -1894,7 +2123,7 @@
       if (state.ringing && alarmAudio.paused && alarmAudio.src) alarmAudio.play().catch(() => {});
     });
 
-    console.log('Smart Alarm v8 loaded');
+    console.log('Smart Alarm v9 loaded');
   </script>
 </body>
 </html>
