@@ -7,342 +7,748 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <style>
+    /* ==================== RESET & BASE ==================== */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
     }
+    :root {
+      --bg: #000000;
+      --card: #1C1C1E;
+      --card-border: rgba(255,255,255,0.08);
+      --accent: #FF9F0A;
+      --accent-dim: rgba(255,159,10,0.15);
+      --text: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --text-tertiary: rgba(255,255,255,0.35);
+      --danger: #FF453A;
+      --success: #30D158;
+      --separator: rgba(255,255,255,0.06);
+    }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
     body {
-      background: #000;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
     }
+
+    /* ==================== APP SHELL ==================== */
     .app {
       position: relative;
       width: 100%;
       max-width: 440px;
       height: 100vh;
       height: 100dvh;
-      padding: calc(env(safe-area-inset-top) + 20px) 20px 24px;
+      padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 20px);
       display: flex;
       flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    /* ==================== HEADER ==================== */
+    .header {
+      display: flex;
+      align-items: center;
       justify-content: space-between;
-      background: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #000 70%);
+      padding: 0 4px 12px;
+      flex-shrink: 0;
+    }
+    .header-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+
+    /* ==================== SCROLL ==================== */
+    .scroll-content {
+      flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-bottom: 8px;
       scrollbar-width: none;
     }
-    .app::-webkit-scrollbar { display: none; }
+    .scroll-content::-webkit-scrollbar { display: none; }
 
-    .glass {
-      background: rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 28px;
-      padding: 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* ==================== CLOCK ==================== */
+    .clock-section {
+      text-align: center;
+      padding: 8px 0 4px;
     }
-    .clock-container { text-align: center; padding: 10px 0 4px; }
     .clock-time {
-      font-size: 82px; font-weight: 700; letter-spacing: 4px; line-height: 1;
-      color: #fff;
-      text-shadow: 0 0 12px #0ff, 0 0 40px #0ff, 0 0 80px #0ff, 0 0 120px #0af;
-      transition: text-shadow 0.4s ease, color 0.4s ease;
+      font-size: 88px;
+      font-weight: 200;
+      letter-spacing: -2px;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: opacity 0.4s ease, color 0.4s ease;
     }
-    .clock-time.dim { color: #2a2a3a; text-shadow: 0 0 8px #0a0a1a; }
+    .clock-time.dim { color: #2c2c2e; }
     .clock-date {
-      font-size: 15px; color: rgba(255, 255, 255, 0.5);
-      margin-top: 10px; letter-spacing: 1px; text-transform: uppercase;
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
     }
-    /* Countdown */
     .countdown {
-      margin-top: 12px;
-      font-size: 15px;
-      color: #0ff;
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--accent);
       font-weight: 600;
-      letter-spacing: 0.5px;
-      min-height: 20px;
+      letter-spacing: 0.3px;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      min-height: 18px;
       transition: opacity 0.3s;
-      text-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
     }
-    .countdown.idle { color: rgba(255,255,255,0.35); text-shadow: none; font-weight: 500; }
-    .section-label {
-      font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
-      color: rgba(255, 255, 255, 0.4); margin-bottom: 12px; padding-left: 4px;
+    .countdown.idle { color: var(--text-tertiary); font-weight: 500; }
+
+    /* ==================== CARD ==================== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
     }
-    .time-picker-row { display: flex; gap: 12px; justify-content: center; margin-bottom: 16px; }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-tertiary);
+    }
+
+    /* ==================== SVG ICON ==================== */
+    .icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+      color: var(--accent);
+    }
+    .icon-secondary { color: var(--text-secondary); }
+    .icon-sm { width: 15px; height: 15px; }
+
+    /* ==================== TIME PICKER ==================== */
+    .time-picker-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
     .time-select {
-      flex: 1; background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 16px; padding: 14px 8px; color: #fff;
-      font-size: 22px; font-weight: 600; text-align: center;
-      appearance: none; -webkit-appearance: none; outline: none; cursor: pointer;
+      flex: 1;
+      background: #2C2C2E;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 8px;
+      color: var(--text);
+      font-size: 26px;
+      font-weight: 300;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      cursor: pointer;
+      letter-spacing: 0.5px;
     }
-    .time-select option { background: #1c1c2e; color: #fff; }
+    .time-select option {
+      background: #2C2C2E;
+      color: var(--text);
+    }
+
+    /* ==================== BUTTONS ==================== */
     .btn {
-      width: 100%; padding: 16px; border: none; border-radius: 18px;
-      font-size: 17px; font-weight: 600; cursor: pointer;
-      transition: transform 0.15s ease, opacity 0.2s ease;
-      color: #fff; letter-spacing: 0.3px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
+      color: var(--text);
+      letter-spacing: 0.1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
     }
     .btn:active { transform: scale(0.97); }
     .btn-primary {
-      background: linear-gradient(135deg, #0ff, #08f);
-      color: #000; border: none; box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+      background: var(--accent);
+      color: #000;
+      box-shadow: 0 2px 10px rgba(255,159,10,0.25);
     }
     .btn-danger {
-      background: linear-gradient(135deg, #f0f, #f50);
-      color: #fff; border: none; box-shadow: 0 4px 20px rgba(255, 0, 255, 0.3);
+      background: var(--danger);
+      color: #fff;
     }
-    .btn-secondary { background: rgba(255, 255, 255, 0.06); }
-    .btn-sm { padding: 12px 14px; font-size: 15px; border-radius: 14px; }
-    .grid-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .btn-secondary {
+      background: #2C2C2E;
+      border: 1px solid var(--card-border);
+    }
+    .btn-sm {
+      padding: 11px 14px;
+      font-size: 14px;
+      border-radius: 12px;
+    }
+    .btn .icon { color: currentColor; }
+
+    /* ==================== CHOICE GRID ==================== */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
     .choice {
-      padding: 14px 12px; border-radius: 16px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1.5px solid rgba(255, 255, 255, 0.1);
-      color: #fff; font-size: 15px; font-weight: 500; cursor: pointer;
-      transition: all 0.2s ease; text-align: center;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 12px;
+      border-radius: 12px;
+      background: #2C2C2E;
+      border: 1.5px solid transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .choice:active { transform: scale(0.96); }
+    .choice:active { transform: scale(0.97); }
     .choice.active {
-      border-color: #0ff; background: rgba(0, 255, 255, 0.12);
-      box-shadow: 0 0 18px rgba(0, 255, 255, 0.2);
+      border-color: var(--accent);
+      background: var(--accent-dim);
     }
-    .choice .emoji { font-size: 18px; }
-    .night-hint {
-      font-size: 11px; color: rgba(255, 255, 255, 0.3); text-align: center;
-      margin-top: 8px; line-height: 1.4; padding: 0 8px;
+    .choice.active .icon { color: var(--accent); }
+    .choice .icon { color: var(--text-secondary); }
+
+    /* ==================== TOGGLE (iOS style) ==================== */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .toggle-label {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .toggle-sub {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+    .toggle {
+      position: relative;
+      width: 51px;
+      height: 31px;
+      border-radius: 16px;
+      background: #3A3A3C;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
+    /* ==================== NIGHT HINT / BATTERY ==================== */
+    .hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-align: center;
+      margin-top: 10px;
+      line-height: 1.4;
+      padding: 0 6px;
     }
     .battery-warning {
       display: none;
       margin-top: 10px;
       padding: 10px 14px;
-      border-radius: 14px;
-      background: rgba(255, 180, 0, 0.12);
-      border: 1px solid rgba(255, 180, 0, 0.3);
-      color: #ffb400;
+      border-radius: 12px;
+      background: rgba(255,159,10,0.1);
+      border: 1px solid rgba(255,159,10,0.25);
+      color: var(--accent);
       font-size: 12px;
       line-height: 1.4;
       text-align: center;
     }
-    .battery-warning.show { display: block; animation: fadeIn 0.4s ease; }
+    .battery-warning.show { display: block; }
+
+    /* ==================== ALARM BADGE ==================== */
     .alarm-badge {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 10px; border-radius: 16px;
-      background: rgba(0, 255, 255, 0.08);
-      border: 1px solid rgba(0, 255, 255, 0.25);
-      color: #0ff; font-size: 14px; font-weight: 600; margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(255,159,10,0.25);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
     }
     .pulse-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #0ff; animation: pulse 1.5s infinite;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.5s infinite;
+      flex-shrink: 0;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.3; transform: scale(0.8); }
     }
+
+    /* ==================== TOAST ==================== */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(44,44,46,0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 13px 22px;
+      font-size: 14px;
+      color: var(--text);
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      z-index: 2000;
+      max-width: 80%;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ==================== RING OVERLAY ==================== */
     .ring-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0, 0, 0, 0.92);
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.94);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
-      z-index: 1000; display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 30px; text-align: center; animation: fadeIn 0.4s ease;
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      text-align: center;
     }
-    .ring-overlay.active { display: flex; }
+    .ring-overlay.active { display: flex; animation: fadeIn 0.4s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .ring-icon {
+      width: 56px;
+      height: 56px;
+      color: var(--accent);
+      margin-bottom: 16px;
+      animation: ringBounce 1s infinite alternate;
+    }
+    @keyframes ringBounce {
+      from { transform: scale(1) rotate(-8deg); }
+      to { transform: scale(1.08) rotate(8deg); }
+    }
     .ring-clock {
-      font-size: 64px; font-weight: 700; color: #fff;
-      text-shadow: 0 0 30px #f0f, 0 0 60px #f0f;
-      margin-bottom: 10px; animation: ringPulse 1s infinite alternate;
+      font-size: 62px;
+      font-weight: 200;
+      letter-spacing: -1px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      margin-bottom: 4px;
     }
-    @keyframes ringPulse {
-      from { text-shadow: 0 0 20px #f0f, 0 0 40px #f0f; }
-      to { text-shadow: 0 0 40px #0ff, 0 0 80px #0ff; }
+    .ring-label {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+      font-weight: 500;
     }
-    .ring-label { font-size: 16px; color: rgba(255, 255, 255, 0.6); margin-bottom: 30px; }
-    .task-area { width: 100%; max-width: 360px; margin-bottom: 20px; }
+    .task-area { width: 100%; max-width: 340px; margin-bottom: 16px; }
     .task-title {
-      font-size: 18px; font-weight: 600; color: #fff;
-      margin-bottom: 16px; text-align: center;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 14px;
+      text-align: center;
     }
     .task-counter {
-      font-size: 48px; font-weight: 700; color: #0ff;
-      text-shadow: 0 0 20px rgba(0, 255, 255, 0.5); margin: 10px 0;
+      font-size: 46px;
+      font-weight: 200;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      margin: 8px 0;
+      letter-spacing: -1px;
     }
     .task-counter small {
-      font-size: 18px; color: rgba(255, 255, 255, 0.5); font-weight: 400;
+      font-size: 17px;
+      color: var(--text-tertiary);
+      font-weight: 400;
     }
     .math-problem {
-      font-size: 32px; font-weight: 700; color: #fff;
-      margin: 16px 0; letter-spacing: 2px;
+      font-size: 30px;
+      font-weight: 300;
+      color: var(--text);
+      margin: 14px 0;
+      letter-spacing: 1px;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
     }
     .math-input {
-      width: 140px; padding: 14px; font-size: 28px; text-align: center;
-      border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.08); color: #fff;
-      outline: none; margin: 10px auto; display: block; font-weight: 600;
+      width: 140px;
+      padding: 13px;
+      font-size: 26px;
+      text-align: center;
+      border-radius: 14px;
+      border: 2px solid #3A3A3C;
+      background: #2C2C2E;
+      color: var(--text);
+      outline: none;
+      margin: 10px auto;
+      display: block;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: border-color 0.2s;
     }
-    .math-input:focus { border-color: #0ff; }
+    .math-input:focus { border-color: var(--accent); }
+
     .video-preview {
-      width: 200px; height: 150px; border-radius: 20px;
-      background: rgba(255, 255, 255, 0.05); margin: 16px auto;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 200px;
+      height: 150px;
+      border-radius: 16px;
+      background: #2C2C2E;
+      margin: 14px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
       position: relative;
     }
     .video-preview video, .video-preview canvas {
-      width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
     }
     .pose-status {
-      font-size: 15px; color: #0ff; margin-top: 12px;
-      min-height: 20px; font-weight: 500;
+      font-size: 14px;
+      color: var(--accent);
+      margin-top: 12px;
+      min-height: 18px;
+      font-weight: 500;
     }
     .depth-bar-container {
-      width: 100%; height: 10px; background: rgba(255, 255, 255, 0.1);
-      border-radius: 5px; margin-top: 10px; overflow: hidden;
+      width: 100%;
+      height: 6px;
+      background: #3A3A3C;
+      border-radius: 3px;
+      margin-top: 10px;
+      overflow: hidden;
     }
     .depth-bar-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, #f0f, #0ff);
-      border-radius: 5px; transition: width 0.1s ease;
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.1s ease;
     }
-    .toast {
-      position: fixed; bottom: 100px; left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 16px; padding: 14px 24px;
-      font-size: 14px; color: #fff; opacity: 0;
-      transition: all 0.3s ease; pointer-events: none;
-      z-index: 2000; max-width: 80%; text-align: center;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ==================== NIGHT OVERLAY ==================== */
     .night-overlay {
-      position: fixed; inset: 0; z-index: 999999;
-      background: #000000; display: none;
-      flex-direction: column; align-items: center; justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      background: #000000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       padding: 20px;
     }
     .night-overlay.active { display: flex; }
     .night-clock {
-      font-size: 72px; font-weight: 300; color: #1f1f1f;
-      letter-spacing: 6px; line-height: 1;
+      font-size: 70px;
+      font-weight: 100;
+      color: #1f1f1f;
+      letter-spacing: 2px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
     }
     .night-date {
-      font-size: 13px; color: #151515; margin-top: 16px; letter-spacing: 1px;
+      font-size: 12px;
+      color: #151515;
+      margin-top: 16px;
+      letter-spacing: 0.5px;
     }
     .night-exit-btn {
-      position: absolute; bottom: 50px; left: 50%;
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom) + 40px);
+      left: 50%;
       transform: translateX(-50%);
-      background: transparent; border: 1px solid #111; color: #222;
-      padding: 12px 30px; border-radius: 30px; font-size: 14px;
-      cursor: pointer; outline: none; transition: border-color 0.3s, opacity 0.3s;
+      background: transparent;
+      border: 1px solid #111;
+      color: #222;
+      padding: 11px 28px;
+      border-radius: 24px;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.3s, opacity 0.3s;
+      font-family: inherit;
     }
     .night-exit-btn:active { border-color: #333; }
+
+    /* ==================== UTILITY ==================== */
     .hidden { display: none !important; }
-    .scroll-content {
-      flex: 1; overflow-y: auto; display: flex;
-      flex-direction: column; gap: 16px; padding-bottom: 20px;
-      scrollbar-width: none;
+    .separator {
+      height: 1px;
+      background: var(--separator);
+      margin: 12px 0;
     }
-    .scroll-content::-webkit-scrollbar { display: none; }
+
+    /* ==================== HIDDEN ELEMENTS ==================== */
     #wakeVideo {
-      position: fixed; top: -10px; left: -10px;
-      width: 1px; height: 1px; opacity: 0;
-      pointer-events: none; z-index: -1;
+      position: fixed;
+      top: -10px;
+      left: -10px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -1;
     }
     #alarmAudio { display: none; }
   </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="clock-container">
-      <div class="clock-time" id="clockDisplay">00:00</div>
-      <div class="clock-date" id="dateDisplay">—</div>
-      <div class="countdown idle" id="countdown">Будильник выключен</div>
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <div class="header-title">Будильник</div>
+      </div>
+      <div class="header-sub" id="headerStatus">ВЫКЛ</div>
     </div>
 
     <div class="scroll-content">
+      <!-- Clock -->
+      <div class="clock-section">
+        <div class="clock-time" id="clockDisplay">00:00</div>
+        <div class="clock-date" id="dateDisplay">—</div>
+        <div class="countdown idle" id="countdown">Будильник выключен</div>
+      </div>
+
+      <!-- Alarm badge -->
       <div id="alarmBadge" class="alarm-badge hidden">
         <span class="pulse-dot"></span>
         <span id="alarmBadgeText">Будильник включён</span>
       </div>
 
-      <div class="glass">
-        <div class="section-label">Время подъёма</div>
+      <!-- Time picker -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span class="card-title">Время подъёма</span>
+        </div>
         <div class="time-picker-row">
           <select class="time-select" id="hourSelect"></select>
           <select class="time-select" id="minuteSelect"></select>
         </div>
-        <button class="btn btn-primary" id="toggleAlarmBtn">Включить будильник</button>
+        <button class="btn btn-primary" id="toggleAlarmBtn">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#000;">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span id="toggleAlarmText">Включить будильник</span>
+        </button>
       </div>
 
-      <div class="glass">
-        <div class="section-label">Мелодия</div>
+      <!-- Melody -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          </svg>
+          <span class="card-title">Мелодия</span>
+        </div>
         <div class="grid-4" id="melodyGrid">
-          <div class="choice" data-melody="field"><span class="emoji">🌻</span> Летнее поле</div>
-          <div class="choice" data-melody="gentle"><span class="emoji">🌸</span> Аккуратная</div>
-          <div class="choice" data-melody="classic"><span class="emoji">⏰</span> Обычная</div>
-          <div class="choice" data-melody="bass"><span class="emoji">🔊</span> Звонкий бас</div>
-          <div class="choice" data-melody="violin"><span class="emoji">🎻</span> Скрипка</div>
+          <div class="choice" data-melody="field">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+            </svg>
+            Летнее поле
+          </div>
+          <div class="choice" data-melody="gentle">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            </svg>
+            Аккуратная
+          </div>
+          <div class="choice" data-melody="classic">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>
+            </svg>
+            Обычная
+          </div>
+          <div class="choice" data-melody="bass">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            Звонкий бас
+          </div>
+          <div class="choice" data-melody="violin" style="grid-column: 1 / -1;">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18"/><path d="M8 7c-2 1-3 3-3 5s1 4 3 5"/><path d="M16 7c2 1 3 3 3 5s-1 4-3 5"/><path d="M9 10c0-1 1-2 3-2s3 1 3 2"/><path d="M9 14c0 1 1 2 3 2s3-1 3-2"/>
+            </svg>
+            Скрипка
+          </div>
         </div>
       </div>
 
-      <div class="glass">
-        <div class="section-label">Задание для отключения</div>
+      <!-- Task -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span class="card-title">Задание для отключения</span>
+        </div>
         <div class="grid-3" id="taskGrid">
-          <div class="choice" data-task="pushups"><span class="emoji">💪</span> 10 отжиманий (камера)</div>
-          <div class="choice" data-task="squats"><span class="emoji">🦵</span> 10 приседаний (камера)</div>
-          <div class="choice" data-task="math"><span class="emoji">🧮</span> 3 математических примера</div>
+          <div class="choice" data-task="pushups">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 6.5h11"/><path d="M8 6.5v11"/><path d="M16 6.5v11"/><path d="M3 12h3"/><path d="M18 12h3"/>
+            </svg>
+            10 отжиманий (камера)
+          </div>
+          <div class="choice" data-task="squats">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="2"/><path d="M10 22v-6l-2-3V9a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4l-2 3v6"/>
+            </svg>
+            10 приседаний (камера)
+          </div>
+          <div class="choice" data-task="math">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h2"/><path d="M14 12h2"/><path d="M8 16h2"/><path d="M14 16h2"/>
+            </svg>
+            3 математических примера
+          </div>
         </div>
       </div>
 
-      <button class="btn btn-secondary" id="testBtn">🔔 Тест звонка сейчас</button>
+      <!-- Test button -->
+      <button class="btn btn-secondary" id="testBtn">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        Тест звонка сейчас
+      </button>
 
-      <div class="glass" style="text-align:center;">
-        <button class="btn btn-secondary" id="nightModeBtn">🌙 Ночной режим</button>
-        <div class="night-hint">
+      <!-- Night mode -->
+      <div class="card">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Ночной режим</div>
+            <div class="toggle-sub">Экран не гаснет всю ночь</div>
+          </div>
+          <div class="toggle" id="nightModeToggle" role="switch" aria-checked="false"></div>
+        </div>
+        <div class="hint">
           Не блокируйте экран кнопкой. На iPhone OLED почти не тратит заряд, на Android лучше подключить зарядку
         </div>
         <div class="battery-warning" id="batteryWarning">
-          🔋 Заряд ниже 25%. Подключите iPhone к зарядке на ночь, чтобы будильник сработал.
+          Заряд ниже 25%. Подключите iPhone к зарядке на ночь, чтобы будильник сработал.
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Night Mode Overlay -->
   <div class="night-overlay" id="nightOverlay">
     <div class="night-clock" id="nightClock">00:00</div>
     <div class="night-date" id="nightDate">—</div>
     <button class="night-exit-btn" id="nightExitBtn">Выйти</button>
   </div>
 
+  <!-- Ringing overlay -->
   <div class="ring-overlay" id="ringOverlay">
+    <svg class="ring-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
     <div class="ring-clock" id="ringClock">00:00</div>
-    <div class="ring-label">Пора вставать!</div>
+    <div class="ring-label">Пора вставать</div>
     <div class="task-area" id="taskArea"></div>
-    <button class="btn btn-danger hidden" id="stopAlarmBtn" style="margin-top:10px;">Отключить будильник</button>
+    <button class="btn btn-danger hidden" id="stopAlarmBtn" style="margin-top:8px;">Отключить будильник</button>
   </div>
 
+  <!-- Toast -->
   <div class="toast" id="toast"></div>
+
+  <!-- Hidden elements -->
   <video id="wakeVideo" muted playsinline loop></video>
   <audio id="alarmAudio" loop playsinline preload="auto"></audio>
 
@@ -384,10 +790,11 @@
     const hourSelect = document.getElementById('hourSelect');
     const minuteSelect = document.getElementById('minuteSelect');
     const toggleAlarmBtn = document.getElementById('toggleAlarmBtn');
+    const toggleAlarmText = document.getElementById('toggleAlarmText');
     const melodyGrid = document.getElementById('melodyGrid');
     const taskGrid = document.getElementById('taskGrid');
     const testBtn = document.getElementById('testBtn');
-    const nightModeBtn = document.getElementById('nightModeBtn');
+    const nightModeToggle = document.getElementById('nightModeToggle');
     const ringOverlay = document.getElementById('ringOverlay');
     const ringClock = document.getElementById('ringClock');
     const taskArea = document.getElementById('taskArea');
@@ -402,10 +809,11 @@
     const wakeVideo = document.getElementById('wakeVideo');
     const alarmAudio = document.getElementById('alarmAudio');
     const batteryWarning = document.getElementById('batteryWarning');
+    const headerStatus = document.getElementById('headerStatus');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v1';
-    const RING_FLAG = 'smart_alarm_ringing';
+    const STORAGE_KEY = 'smart_alarm_state_v2';
+    const RING_FLAG = 'smart_alarm_ringing_v2';
 
     // ==================== STATE ====================
     const state = {
@@ -441,8 +849,6 @@
       hapticInterval: null,
       // WAV URL
       currentWavUrl: null,
-      // Battery
-      batteryManager: null,
     };
 
     // ==================== PERSISTENCE ====================
@@ -456,7 +862,6 @@
           task: state.task,
           nightMode: state.nightMode,
           ringing: state.ringing,
-          ringingSince: state.ringing ? Date.now() : 0,
         }));
       } catch(e) {}
     }
@@ -464,13 +869,8 @@
     function loadState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw);
+        return raw ? JSON.parse(raw) : null;
       } catch(e) { return null; }
-    }
-
-    function clearRingFlag() {
-      try { localStorage.removeItem(RING_FLAG); } catch(e) {}
     }
 
     // ==================== INITIALIZATION ====================
@@ -490,7 +890,6 @@
     }
     populateSelectors();
 
-    // Restore saved state
     (function restoreState() {
       const saved = loadState();
       if (saved) {
@@ -509,11 +908,19 @@
       document.querySelector(`[data-melody="${state.melody}"]`)?.classList.add('active');
       document.querySelector(`[data-task="${state.task}"]`)?.classList.add('active');
       if (state.alarmEnabled) {
-        toggleAlarmBtn.textContent = 'Выключить будильник';
+        toggleAlarmText.textContent = 'Выключить будильник';
         toggleAlarmBtn.classList.remove('btn-primary');
         toggleAlarmBtn.classList.add('btn-danger');
         alarmBadge.classList.remove('hidden');
         alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
+        headerStatus.textContent = 'ВКЛ';
+        headerStatus.style.color = 'var(--accent)';
+      }
+      if (state.nightMode) {
+        nightModeToggle.classList.add('on');
+        nightModeToggle.setAttribute('aria-checked', 'true');
+        clockDisplay.classList.add('dim');
+        nightOverlay.classList.add('active');
       }
     })();
 
@@ -531,8 +938,8 @@
         clockDisplay.textContent = timeStr;
         clockDisplay.classList.remove('dim');
       }
-      const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-      const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
       const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
       dateDisplay.textContent = dateStr;
       nightDate.textContent = dateStr;
@@ -544,7 +951,7 @@
 
     function updateCountdown(now) {
       if (state.ringing) {
-        countdownEl.textContent = '🔔 Будильник звонит!';
+        countdownEl.textContent = 'Будильник звонит';
         countdownEl.classList.remove('idle');
         return;
       }
@@ -553,13 +960,12 @@
         countdownEl.classList.add('idle');
         return;
       }
-      // Target = today or tomorrow at alarmHour:alarmMinute
       const target = new Date(now);
       target.setHours(state.alarmHour, state.alarmMinute, 0, 0);
       if (target.getTime() <= now.getTime()) {
         target.setDate(target.getDate() + 1);
       }
-      let diff = Math.max(0, target.getTime() - now.getTime());
+      const diff = Math.max(0, target.getTime() - now.getTime());
       const totalMin = Math.floor(diff / 60000);
       const hours = Math.floor(totalMin / 60);
       const mins = totalMin % 60;
@@ -568,7 +974,7 @@
       } else if (totalMin > 0) {
         countdownEl.textContent = `Зазвенит через ${mins} мин`;
       } else {
-        countdownEl.textContent = 'Зазвенит через несколько секунд…';
+        countdownEl.textContent = 'Зазвенит через несколько секунд';
       }
       countdownEl.classList.remove('idle');
     }
@@ -589,12 +995,11 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ==================== ANTI-CHEAT: RESUME RINGING IF NEEDED ====================
+    // ==================== ANTI-CHEAT: RESUME RINGING ====================
     (function checkResumeRinging() {
       const saved = loadState();
       const urlRing = new URLSearchParams(window.location.search).get('ring') === '1';
       if (urlRing || (saved && saved.ringing)) {
-        // Resume the alarm immediately (after UI is ready)
         setTimeout(() => {
           initAudioCtx();
           triggerAlarm(true);
@@ -659,7 +1064,7 @@
       }
     }
 
-    // ==================== WAV RENDERER (OfflineAudioContext) ====================
+    // ==================== WAV RENDERER ====================
     async function renderMelodyToWav(type) {
       let cycleDuration;
       if (type === 'field') cycleDuration = 16 * 0.22;
@@ -842,13 +1247,12 @@
       alarmAudio.volume = 0.15;
       const startVol = 0.15;
       const targetVol = 1.0;
-      const duration = 25000; // 25 seconds
+      const duration = 25000;
       const startTime = Date.now();
       state.volumeRampInterval = setInterval(() => {
         if (!state.ringing) { stopVolumeRamp(); return; }
         const elapsed = Date.now() - startTime;
         const progress = Math.min(1, elapsed / duration);
-        // Smooth ease-in-out
         const eased = progress < 0.5
           ? 2 * progress * progress
           : 1 - Math.pow(-2 * progress + 2, 2) / 2;
@@ -876,14 +1280,14 @@
         alarmAudio.playsInline = true;
         alarmAudio.muted = false;
         alarmAudio.volume = 0.15;
-        try { await alarmAudio.play(); } catch(e) { console.warn('WAV play failed:', e); }
+        try { await alarmAudio.play(); } catch(e) {}
         startVolumeRamp();
         if (state.audioWatchdog) clearInterval(state.audioWatchdog);
         state.audioWatchdog = setInterval(() => {
           if (!state.ringing) return;
           if (alarmAudio.paused) alarmAudio.play().catch(() => {});
         }, 500);
-      } catch(e) { console.warn('WAV render error:', e); }
+      } catch(e) {}
     }
 
     function stopWavAlarm() {
@@ -947,7 +1351,6 @@
       if (!navigator.getBattery) return;
       try {
         const battery = await navigator.getBattery();
-        state.batteryManager = battery;
         const update = () => {
           const level = Math.round(battery.level * 100);
           if (level < 25 && !battery.charging) {
@@ -963,7 +1366,7 @@
     }
     checkBattery();
 
-    // ==================== UI: MELODY & TASK SELECTION ====================
+    // ==================== UI: MELODY & TASK ====================
     melodyGrid.addEventListener('click', (e) => {
       const el = e.target.closest('.choice');
       if (!el) return;
@@ -1002,10 +1405,12 @@
       if (state.alarmEnabled) {
         state.alarmEnabled = false;
         state.lastTriggeredMinute = null;
-        toggleAlarmBtn.textContent = 'Включить будильник';
+        toggleAlarmText.textContent = 'Включить будильник';
         toggleAlarmBtn.classList.remove('btn-danger');
         toggleAlarmBtn.classList.add('btn-primary');
         alarmBadge.classList.add('hidden');
+        headerStatus.textContent = 'ВЫКЛ';
+        headerStatus.style.color = '';
         ensureKeepAlive();
         saveState();
         showToast('Будильник выключен');
@@ -1014,11 +1419,13 @@
         state.alarmMinute = parseInt(minuteSelect.value);
         state.alarmEnabled = true;
         state.lastTriggeredMinute = null;
-        toggleAlarmBtn.textContent = 'Выключить будильник';
+        toggleAlarmText.textContent = 'Выключить будильник';
         toggleAlarmBtn.classList.remove('btn-primary');
         toggleAlarmBtn.classList.add('btn-danger');
         alarmBadge.classList.remove('hidden');
         alarmBadgeText.textContent = `Будильник на ${String(state.alarmHour).padStart(2,'0')}:${String(state.alarmMinute).padStart(2,'0')}`;
+        headerStatus.textContent = 'ВКЛ';
+        headerStatus.style.color = 'var(--accent)';
         ensureKeepAlive();
         saveState();
         if (state.task === 'pushups' || state.task === 'squats') await requestCamera();
@@ -1034,8 +1441,8 @@
       triggerAlarm(true);
     });
 
-    // ==================== NIGHT MODE ====================
-    nightModeBtn.addEventListener('click', async () => {
+    // ==================== NIGHT MODE TOGGLE ====================
+    nightModeToggle.addEventListener('click', async () => {
       initAudioCtx();
       haptic('selection');
       if (state.nightMode) exitNightMode();
@@ -1044,24 +1451,22 @@
 
     async function enterNightMode() {
       state.nightMode = true;
+      nightModeToggle.classList.add('on');
+      nightModeToggle.setAttribute('aria-checked', 'true');
       nightOverlay.classList.add('active');
-      nightModeBtn.textContent = '☀️ Дневной режим';
-      nightModeBtn.classList.remove('btn-secondary');
-      nightModeBtn.classList.add('btn-primary');
       clockDisplay.classList.add('dim');
       await requestWakeLock();
       startWakeVideo();
       ensureKeepAlive();
       saveState();
-      showToast('Ночной режим включён. Экран не погаснет.');
+      showToast('Ночной режим включён');
     }
 
     function exitNightMode() {
       state.nightMode = false;
+      nightModeToggle.classList.remove('on');
+      nightModeToggle.setAttribute('aria-checked', 'false');
       nightOverlay.classList.remove('active');
-      nightModeBtn.textContent = '🌙 Ночной режим';
-      nightModeBtn.classList.remove('btn-primary');
-      nightModeBtn.classList.add('btn-secondary');
       clockDisplay.classList.remove('dim');
       releaseWakeLock();
       stopWakeVideo();
@@ -1199,7 +1604,7 @@
 
       if (state.phase === 'up' && avg < 95) {
         state.phase = 'down';
-        updatePoseStatus('Отлично, вверх!');
+        updatePoseStatus('Отлично, вверх');
         haptic('selection');
       } else if (state.phase === 'down' && avg > 150) {
         state.phase = 'up';
@@ -1226,7 +1631,7 @@
 
       if (state.phase === 'up' && avg < 100) {
         state.phase = 'down';
-        updatePoseStatus('Отлично, вверх!');
+        updatePoseStatus('Отлично, вверх');
         haptic('selection');
       } else if (state.phase === 'down' && avg > 150) {
         state.phase = 'up';
@@ -1267,8 +1672,6 @@
     async function triggerAlarm(isTest = false) {
       if (state.ringing) return;
       state.ringing = true;
-
-      // Save ringing flag for anti-cheat
       try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
       saveState();
 
@@ -1288,9 +1691,7 @@
 
       if (state.nightMode) {
         nightOverlay.classList.remove('active');
-        nightModeBtn.textContent = '🌙 Ночной режим';
-        nightModeBtn.classList.remove('btn-primary');
-        nightModeBtn.classList.add('btn-secondary');
+        nightModeToggle.classList.remove('on');
         clockDisplay.classList.remove('dim');
         stopWakeVideo();
       }
@@ -1315,8 +1716,8 @@
       if (isTest) {
         stopAlarmBtn.classList.remove('hidden');
         const testMsg = document.createElement('div');
-        testMsg.style.cssText = 'color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:16px;';
-        testMsg.textContent = 'Тестовый режим – задание не требуется';
+        testMsg.style.cssText = 'color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:16px;';
+        testMsg.textContent = 'Тестовый режим — задание не требуется';
         taskArea.appendChild(testMsg);
       } else {
         if (state.task === 'pushups' || state.task === 'squats') {
@@ -1333,7 +1734,7 @@
       if (!camOk) return false;
       const poseOk = await initPose();
       if (!poseOk) {
-        showToast('Не удалось загрузить распознавание позы. Используем примеры.');
+        showToast('Не удалось загрузить распознавание позы');
         setupMathTask();
         return true;
       }
@@ -1376,7 +1777,7 @@
           };
           processFrame();
         } catch(e) {
-          showToast('Ошибка распознавания. Используем примеры.');
+          showToast('Ошибка распознавания');
           setupMathTask();
         }
       };
@@ -1401,7 +1802,7 @@
           <div class="task-title">Решите пример (${state.mathIndex + 1} из ${state.mathProblems.length})</div>
           <div class="math-problem">${p.text} = ?</div>
           <input type="number" class="math-input" id="mathInput" inputmode="numeric" placeholder="?" autofocus>
-          <button class="btn btn-primary btn-sm" id="mathSubmitBtn" style="margin-top:8px;">Проверить</button>
+          <button class="btn btn-primary btn-sm" id="mathSubmitBtn" style="margin-top:10px;max-width:200px;margin-left:auto;margin-right:auto;">Проверить</button>
         `;
         const input = document.getElementById('mathInput');
         const submitBtn = document.getElementById('mathSubmitBtn');
@@ -1417,8 +1818,8 @@
           } else {
             haptic('error');
             input.value = '';
-            input.style.borderColor = '#f55';
-            setTimeout(() => { input.style.borderColor = 'rgba(255,255,255,0.2)'; }, 500);
+            input.style.borderColor = 'var(--danger)';
+            setTimeout(() => { input.style.borderColor = '#3A3A3C'; }, 500);
             showToast('Неверно, попробуйте ещё раз');
           }
         };
@@ -1439,8 +1840,6 @@
     function stopAlarm() {
       if (!state.ringing) return;
       state.ringing = false;
-
-      // Clear anti-cheat flag
       try { localStorage.removeItem(RING_FLAG); } catch(e) {}
 
       stopWavAlarm();
@@ -1459,10 +1858,12 @@
 
       state.alarmEnabled = false;
       state.lastTriggeredMinute = null;
-      toggleAlarmBtn.textContent = 'Включить будильник';
+      toggleAlarmText.textContent = 'Включить будильник';
       toggleAlarmBtn.classList.remove('btn-danger');
       toggleAlarmBtn.classList.add('btn-primary');
       alarmBadge.classList.add('hidden');
+      headerStatus.textContent = 'ВЫКЛ';
+      headerStatus.style.color = '';
 
       nightExitBtn.style.display = '';
 
@@ -1472,6 +1873,8 @@
 
       if (state.nightMode) {
         nightOverlay.classList.add('active');
+        nightModeToggle.classList.add('on');
+        clockDisplay.classList.add('dim');
         startWakeVideo();
       } else {
         releaseWakeLock();
@@ -1506,13 +1909,11 @@
     });
 
     window.addEventListener('beforeunload', () => {
-      // Don't clear ring flag — allow resume if user comes back
       stopSilentAudio();
       if (state.hapticInterval) clearInterval(state.hapticInterval);
       stopCamera();
       releaseWakeLock();
       stopWakeVideo();
-      // Note: do NOT stop WAV here, ring flag persistence is enough
     });
 
     document.addEventListener('click', () => {
