@@ -38,11 +38,7 @@
       -webkit-user-select: none;
       overflow: hidden;
     }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    body { display: flex; align-items: center; justify-content: center; }
 
     /* ==================== APP SHELL ==================== */
     .app {
@@ -60,295 +56,146 @@
 
     /* ==================== HEADER ==================== */
     .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 4px 12px;
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 4px 12px; flex-shrink: 0;
     }
-    .header-title {
-      font-size: 17px;
-      font-weight: 600;
-      letter-spacing: -0.2px;
-    }
+    .header-title { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
     .header-sub {
-      font-size: 12px;
-      color: var(--text-tertiary);
-      font-weight: 500;
-      letter-spacing: 0.2px;
-      text-transform: uppercase;
+      font-size: 12px; color: var(--text-tertiary);
+      font-weight: 500; letter-spacing: 0.2px; text-transform: uppercase;
     }
 
     /* ==================== SCROLL ==================== */
     .scroll-content {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      padding-bottom: 8px;
-      scrollbar-width: none;
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 14px; padding-bottom: 8px; scrollbar-width: none;
     }
     .scroll-content::-webkit-scrollbar { display: none; }
 
     /* ==================== CLOCK ==================== */
-    .clock-section {
-      text-align: center;
-      padding: 8px 0 4px;
-    }
+    .clock-section { text-align: center; padding: 8px 0 4px; }
     .clock-time {
-      font-size: 88px;
-      font-weight: 200;
-      letter-spacing: -2px;
-      line-height: 1;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
+      font-size: 88px; font-weight: 200; letter-spacing: -2px; line-height: 1;
+      color: var(--text); font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum";
       transition: opacity 0.4s ease, color 0.4s ease;
     }
     .clock-time.dim { color: #2c2c2e; }
     .clock-date {
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin-top: 8px;
-      font-weight: 500;
-      letter-spacing: 0.2px;
+      font-size: 14px; color: var(--text-secondary); margin-top: 8px;
+      font-weight: 500; letter-spacing: 0.2px;
     }
     .countdown {
-      margin-top: 10px;
-      font-size: 14px;
-      color: var(--accent);
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-      min-height: 18px;
-      transition: opacity 0.3s;
+      margin-top: 10px; font-size: 14px; color: var(--accent); font-weight: 600;
+      letter-spacing: 0.3px; font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum"; min-height: 18px; transition: opacity 0.3s;
     }
     .countdown.idle { color: var(--text-tertiary); font-weight: 500; }
 
     /* ==================== CARD ==================== */
     .card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 18px;
-      padding: 16px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      background: var(--card); border: 1px solid var(--card-border);
+      border-radius: 18px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
     }
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
+    .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
     .card-title {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-tertiary);
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-tertiary);
     }
 
     /* ==================== SVG ICON ==================== */
     .icon {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-      display: inline-block;
-      vertical-align: middle;
-      color: var(--accent);
+      width: 18px; height: 18px; flex-shrink: 0;
+      display: inline-block; vertical-align: middle; color: var(--accent);
     }
     .icon-secondary { color: var(--text-secondary); }
     .icon-sm { width: 15px; height: 15px; }
 
     /* ==================== TIME PICKER ==================== */
-    .time-picker-row {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 14px;
-    }
+    .time-picker-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
     .time-select {
-      flex: 1;
-      background: #2C2C2E;
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 16px 8px;
-      color: var(--text);
-      font-size: 26px;
-      font-weight: 300;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-      appearance: none;
-      -webkit-appearance: none;
-      outline: none;
-      cursor: pointer;
-      letter-spacing: 0.5px;
+      flex: 1; background: #2C2C2E; border: 1px solid var(--card-border);
+      border-radius: 14px; padding: 16px 8px; color: var(--text);
+      font-size: 26px; font-weight: 300; text-align: center;
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+      appearance: none; -webkit-appearance: none; outline: none;
+      cursor: pointer; letter-spacing: 0.5px;
     }
-    .time-select option {
-      background: #2C2C2E;
-      color: var(--text);
-    }
+    .time-select option { background: #2C2C2E; color: var(--text); }
 
     /* ==================== BUTTONS ==================== */
     .btn {
-      width: 100%;
-      padding: 15px;
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
+      width: 100%; padding: 15px; border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 600; cursor: pointer;
       transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
-      color: var(--text);
-      letter-spacing: 0.1px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      color: var(--text); letter-spacing: 0.1px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
       font-family: inherit;
     }
     .btn:active { transform: scale(0.97); }
-    .btn-primary {
-      background: var(--accent);
-      color: #000;
-      box-shadow: 0 2px 10px rgba(255,159,10,0.25);
-    }
-    .btn-danger {
-      background: var(--danger);
-      color: #fff;
-    }
-    .btn-secondary {
-      background: #2C2C2E;
-      border: 1px solid var(--card-border);
-    }
-    .btn-sm {
-      padding: 11px 14px;
-      font-size: 14px;
-      border-radius: 12px;
-    }
+    .btn-primary { background: var(--accent); color: #000; box-shadow: 0 2px 10px rgba(255,159,10,0.25); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: #2C2C2E; border: 1px solid var(--card-border); }
+    .btn-sm { padding: 11px 14px; font-size: 14px; border-radius: 12px; }
     .btn .icon { color: currentColor; }
 
     /* ==================== CHOICE GRID ==================== */
-    .grid-4 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .choice {
-      padding: 13px 12px;
-      border-radius: 12px;
-      background: #2C2C2E;
-      border: 1.5px solid transparent;
-      color: var(--text);
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      padding: 13px 12px; border-radius: 12px; background: #2C2C2E;
+      border: 1.5px solid transparent; color: var(--text);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease; text-align: left;
+      display: flex; align-items: center; gap: 10px;
     }
     .choice:active { transform: scale(0.97); }
-    .choice.active {
-      border-color: var(--accent);
-      background: var(--accent-dim);
-    }
+    .choice.active { border-color: var(--accent); background: var(--accent-dim); }
     .choice.active .icon { color: var(--accent); }
     .choice .icon { color: var(--text-secondary); }
 
-    /* ==================== TOGGLE (iOS style) ==================== */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .toggle-label {
-      font-size: 15px;
-      font-weight: 500;
-    }
-    .toggle-sub {
-      font-size: 12px;
-      color: var(--text-tertiary);
-      margin-top: 2px;
-    }
+    /* ==================== TOGGLE ==================== */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .toggle-label { font-size: 15px; font-weight: 500; }
+    .toggle-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
     .toggle {
-      position: relative;
-      width: 51px;
-      height: 31px;
-      border-radius: 16px;
-      background: #3A3A3C;
-      flex-shrink: 0;
-      cursor: pointer;
+      position: relative; width: 51px; height: 31px; border-radius: 16px;
+      background: #3A3A3C; flex-shrink: 0; cursor: pointer;
       transition: background 0.3s ease;
     }
     .toggle.on { background: var(--accent); }
     .toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 27px;
-      height: 27px;
-      border-radius: 50%;
-      background: #fff;
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 27px; height: 27px; border-radius: 50%; background: #fff;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
       transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
     }
     .toggle.on::after { transform: translateX(20px); }
 
-    /* ==================== NIGHT HINT / BATTERY ==================== */
+    /* ==================== HINTS ==================== */
     .hint {
-      font-size: 11px;
-      color: var(--text-tertiary);
-      text-align: center;
-      margin-top: 10px;
-      line-height: 1.4;
-      padding: 0 6px;
+      font-size: 11px; color: var(--text-tertiary); text-align: center;
+      margin-top: 10px; line-height: 1.4; padding: 0 6px;
     }
     .battery-warning {
-      display: none;
-      margin-top: 10px;
-      padding: 10px 14px;
-      border-radius: 12px;
-      background: rgba(255,159,10,0.1);
-      border: 1px solid rgba(255,159,10,0.25);
-      color: var(--accent);
-      font-size: 12px;
-      line-height: 1.4;
-      text-align: center;
+      display: none; margin-top: 10px; padding: 10px 14px;
+      border-radius: 12px; background: rgba(255,159,10,0.1);
+      border: 1px solid rgba(255,159,10,0.25); color: var(--accent);
+      font-size: 12px; line-height: 1.4; text-align: center;
     }
     .battery-warning.show { display: block; }
 
     /* ==================== ALARM BADGE ==================== */
     .alarm-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: 14px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 14px;
       background: var(--accent-dim);
       border: 1px solid rgba(255,159,10,0.25);
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 2px;
+      color: var(--accent); font-size: 13px; font-weight: 600; margin-bottom: 2px;
     }
     .pulse-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 1.5s infinite;
-      flex-shrink: 0;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent); animation: pulse 1.5s infinite; flex-shrink: 0;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -357,187 +204,102 @@
 
     /* ==================== TOAST ==================== */
     .toast {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
+      position: fixed; bottom: 100px; left: 50%;
       transform: translateX(-50%) translateY(20px);
-      background: rgba(44,44,46,0.95);
-      backdrop-filter: blur(20px);
+      background: rgba(44,44,46,0.95); backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 13px 22px;
-      font-size: 14px;
-      color: var(--text);
-      opacity: 0;
-      transition: all 0.3s ease;
-      pointer-events: none;
-      z-index: 2000;
-      max-width: 80%;
-      text-align: center;
+      border: 1px solid var(--card-border); border-radius: 14px;
+      padding: 13px 22px; font-size: 14px; color: var(--text);
+      opacity: 0; transition: all 0.3s ease; pointer-events: none;
+      z-index: 2000; max-width: 80%; text-align: center;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ==================== RING OVERLAY ==================== */
     .ring-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.94);
-      backdrop-filter: blur(30px);
-      -webkit-backdrop-filter: blur(30px);
-      z-index: 1000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 30px;
-      text-align: center;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.94);
+      backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      z-index: 1000; display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 30px; text-align: center;
     }
     .ring-overlay.active { display: flex; animation: fadeIn 0.4s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
     .ring-icon {
-      width: 56px;
-      height: 56px;
-      color: var(--accent);
-      margin-bottom: 16px;
-      animation: ringBounce 1s infinite alternate;
+      width: 56px; height: 56px; color: var(--accent);
+      margin-bottom: 16px; animation: ringBounce 1s infinite alternate;
     }
     @keyframes ringBounce {
       from { transform: scale(1) rotate(-8deg); }
       to { transform: scale(1.08) rotate(8deg); }
     }
     .ring-clock {
-      font-size: 62px;
-      font-weight: 200;
-      letter-spacing: -1px;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
+      font-size: 62px; font-weight: 200; letter-spacing: -1px; color: var(--text);
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
       margin-bottom: 4px;
     }
     .ring-label {
-      font-size: 15px;
-      color: var(--text-secondary);
-      margin-bottom: 28px;
-      font-weight: 500;
+      font-size: 15px; color: var(--text-secondary);
+      margin-bottom: 28px; font-weight: 500;
     }
     .task-area { width: 100%; max-width: 340px; margin-bottom: 16px; }
     .task-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 14px;
-      text-align: center;
+      font-size: 17px; font-weight: 600; color: var(--text);
+      margin-bottom: 14px; text-align: center;
     }
     .task-counter {
-      font-size: 46px;
-      font-weight: 200;
-      color: var(--accent);
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-      margin: 8px 0;
-      letter-spacing: -1px;
+      font-size: 46px; font-weight: 200; color: var(--accent);
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+      margin: 8px 0; letter-spacing: -1px;
     }
-    .task-counter small {
-      font-size: 17px;
-      color: var(--text-tertiary);
-      font-weight: 400;
-    }
+    .task-counter small { font-size: 17px; color: var(--text-tertiary); font-weight: 400; }
     .math-problem {
-      font-size: 30px;
-      font-weight: 300;
-      color: var(--text);
-      margin: 14px 0;
-      letter-spacing: 1px;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
+      font-size: 30px; font-weight: 300; color: var(--text);
+      margin: 14px 0; letter-spacing: 1px;
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
     }
     .math-input {
-      width: 140px;
-      padding: 13px;
-      font-size: 26px;
-      text-align: center;
-      border-radius: 14px;
-      border: 2px solid #3A3A3C;
-      background: #2C2C2E;
-      color: var(--text);
-      outline: none;
-      margin: 10px auto;
-      display: block;
-      font-weight: 300;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-      transition: border-color 0.2s;
+      width: 140px; padding: 13px; font-size: 26px; text-align: center;
+      border-radius: 14px; border: 2px solid #3A3A3C; background: #2C2C2E;
+      color: var(--text); outline: none; margin: 10px auto; display: block;
+      font-weight: 300; font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum"; transition: border-color 0.2s;
     }
     .math-input:focus { border-color: var(--accent); }
 
-    /* ==================== VIDEO PREVIEW (с оверлеем) ==================== */
+    /* ==================== VIDEO PREVIEW ==================== */
     .video-preview {
-      width: 220px;
-      height: 280px;
-      border-radius: 16px;
-      background: #2C2C2E;
-      margin: 14px auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      border: 1px solid var(--card-border);
-      position: relative;
+      width: 240px; height: 300px; border-radius: 16px; background: #2C2C2E;
+      margin: 14px auto; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; border: 1px solid var(--card-border); position: relative;
     }
     .video-preview video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
-      position: absolute;
-      inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      transform: scaleX(-1); position: absolute; inset: 0;
     }
     .video-preview canvas.overlay {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 2;
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 2;
     }
     .pose-status {
-      font-size: 14px;
-      color: var(--accent);
-      margin-top: 12px;
-      min-height: 18px;
-      font-weight: 500;
-      text-align: center;
+      font-size: 14px; color: var(--accent); margin-top: 12px;
+      min-height: 18px; font-weight: 500; text-align: center;
     }
     .depth-bar-container {
-      width: 100%;
-      height: 6px;
-      background: #3A3A3C;
-      border-radius: 3px;
-      margin-top: 10px;
-      overflow: hidden;
+      width: 100%; height: 6px; background: #3A3A3C;
+      border-radius: 3px; margin-top: 10px; overflow: hidden;
     }
     .depth-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      border-radius: 3px;
-      transition: width 0.1s ease;
+      height: 100%; width: 0%; background: var(--accent);
+      border-radius: 3px; transition: width 0.1s ease;
     }
     .lowlight-btn {
-      display: none;
-      margin-top: 12px;
-      width: 100%;
-      padding: 11px 14px;
-      border-radius: 12px;
+      display: none; margin-top: 12px; width: 100%;
+      padding: 11px 14px; border-radius: 12px;
       background: rgba(255,159,10,0.12);
       border: 1px solid rgba(255,159,10,0.35);
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
+      color: var(--accent); font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
       transition: transform 0.15s ease;
     }
     .lowlight-btn:active { transform: scale(0.97); }
@@ -545,68 +307,38 @@
 
     /* ==================== NIGHT OVERLAY ==================== */
     .night-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 999999;
-      background: #000000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      position: fixed; inset: 0; z-index: 999999; background: #000000;
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; padding: 20px;
     }
     .night-overlay.active { display: flex; }
     .night-clock {
-      font-size: 70px;
-      font-weight: 100;
-      color: #1f1f1f;
-      letter-spacing: 2px;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
+      font-size: 70px; font-weight: 100; color: #1f1f1f;
+      letter-spacing: 2px; line-height: 1;
+      font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
     }
     .night-date {
-      font-size: 12px;
-      color: #151515;
-      margin-top: 16px;
-      letter-spacing: 0.5px;
+      font-size: 12px; color: #151515; margin-top: 16px; letter-spacing: 0.5px;
     }
     .night-exit-btn {
-      position: absolute;
-      bottom: calc(env(safe-area-inset-bottom) + 40px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: transparent;
-      border: 1px solid #111;
-      color: #222;
-      padding: 11px 28px;
-      border-radius: 24px;
-      font-size: 13px;
-      cursor: pointer;
-      outline: none;
-      transition: border-color 0.3s, opacity 0.3s;
-      font-family: inherit;
+      position: absolute; bottom: calc(env(safe-area-inset-bottom) + 40px);
+      left: 50%; transform: translateX(-50%);
+      background: transparent; border: 1px solid #111; color: #222;
+      padding: 11px 28px; border-radius: 24px; font-size: 13px;
+      cursor: pointer; outline: none;
+      transition: border-color 0.3s, opacity 0.3s; font-family: inherit;
     }
     .night-exit-btn:active { border-color: #333; }
 
     /* ==================== UTILITY ==================== */
     .hidden { display: none !important; }
-    .separator {
-      height: 1px;
-      background: var(--separator);
-      margin: 12px 0;
-    }
+    .separator { height: 1px; background: var(--separator); margin: 12px 0; }
 
     /* ==================== HIDDEN ELEMENTS ==================== */
     #wakeVideo {
-      position: fixed;
-      top: -10px;
-      left: -10px;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-      z-index: -1;
+      position: fixed; top: -10px; left: -10px;
+      width: 1px; height: 1px; opacity: 0;
+      pointer-events: none; z-index: -1;
     }
     #alarmAudio { display: none; }
   </style>
@@ -615,9 +347,7 @@
   <div class="app" id="app">
     <!-- Header -->
     <div class="header">
-      <div>
-        <div class="header-title">Будильник</div>
-      </div>
+      <div><div class="header-title">Будильник</div></div>
       <div class="header-sub" id="headerStatus">ВЫКЛ</div>
     </div>
 
@@ -841,9 +571,10 @@
     const headerStatus = document.getElementById('headerStatus');
 
     // ==================== CONSTANTS ====================
-    const STORAGE_KEY = 'smart_alarm_state_v3';
-    const RING_FLAG = 'smart_alarm_ringing_v3';
+    const STORAGE_KEY = 'smart_alarm_state_v4';
+    const RING_FLAG = 'smart_alarm_ringing_v4';
     const REPS_TARGET = 10;
+    const SMOOTHING_FRAMES = 3;
 
     // ==================== STATE ====================
     const state = {
@@ -871,15 +602,19 @@
       poseStatusEl: null,
       poseReady: false,
       phase: 'up',
-      // Vertical tracking
-      baseY: null,
+      // Vertical tracking with shoulder-width scaling
       baseYSamples: [],
       calibrationStart: 0,
       CALIBRATION_MS: 1500,
-      lastShoulderY: null,
+      topY: null,
+      topShoulderWidth: null,
+      lastSmoothedY: null,
+      yHistory: [],
+      downThresholdY: null,
+      returnThresholdY: null,
+      lastShoulderWidth: null,
       // Low-light
       noLandmarkSince: 0,
-      lowLightTimer: null,
       lowLightTriggered: false,
       lowLightBtnEl: null,
       // Audio
@@ -1038,7 +773,7 @@
       }
     })();
 
-    // ==================== AUDIO CONTEXT ====================
+    // ==================== AUDIO ====================
     function initAudioCtx() {
       if (!state.audioCtx) {
         try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
@@ -1559,10 +1294,6 @@
         try { state.pose.close(); } catch(e) {}
         state.pose = null;
       }
-      if (state.lowLightTimer) {
-        clearInterval(state.lowLightTimer);
-        state.lowLightTimer = null;
-      }
     }
 
     async function initPose() {
@@ -1585,37 +1316,42 @@
       } catch(e) { return false; }
     }
 
-    // Vertical Y tracking using nose + shoulders
+    // ==================== RELATIVE-SCALE VERTICAL TRACKING ====================
+    // Uses shoulder width in frame to define down-threshold.
+    // Pushups: downThreshold = topY + 0.45 * shoulderWidth
+    // Squats:  downThreshold = topY + 0.85 * shoulderWidth
+    // Return threshold = topY + 0.5 * (downThreshold - topY)  (midpoint)
     function onPoseResults(results) {
       if (!state.ringing) return;
       const landmarks = results.poseLandmarks;
       const overlay = document.querySelector('.video-preview canvas.overlay');
       if (!landmarks) {
         updatePoseStatus('Встаньте дальше, чтобы было видно тело');
-        drawOverlay(overlay, null);
+        drawOverlay(overlay, null, null, null);
         markNoLandmark();
         return;
       }
+
       const nose = landmarks[0];
       const ls = landmarks[11];
       const rs = landmarks[12];
-      const visibilityOk = nose && ls && rs &&
+
+      const visOk = nose && ls && rs &&
         (nose.visibility ?? 0) > 0.4 &&
         (ls.visibility ?? 0) > 0.4 &&
         (rs.visibility ?? 0) > 0.4;
 
-      if (!visibilityOk) {
+      if (!visOk) {
         updatePoseStatus('Нужно видеть лицо и плечи');
-        drawOverlay(overlay, null);
+        drawOverlay(overlay, null, null, null);
         markNoLandmark();
         return;
       }
-
       clearNoLandmark();
 
-      // Average Y of nose + shoulders (0 = top, 1 = bottom)
       const avgY = (nose.y + ls.y + rs.y) / 3;
-      state.lastShoulderY = avgY;
+      const shoulderWidth = Math.abs(ls.x - rs.x);
+      state.lastShoulderWidth = shoulderWidth;
 
       // Calibration phase (first 1.5s after camera start)
       const now = Date.now();
@@ -1625,33 +1361,39 @@
       if (elapsed < state.CALIBRATION_MS) {
         state.baseYSamples.push(avgY);
         updatePoseStatus('Приготовьтесь...');
-        drawOverlay(overlay, avgY);
+        drawOverlay(overlay, avgY, null, null);
         return;
       }
 
-      if (state.baseY === null) {
-        // Compute median of samples
+      // Lock topY and topShoulderWidth from calibration samples
+      if (state.topY === null) {
         const sorted = state.baseYSamples.slice().sort((a,b) => a-b);
-        state.baseY = sorted[Math.floor(sorted.length / 2)] || avgY;
+        state.topY = sorted[Math.floor(sorted.length / 2)] || avgY;
+        state.topShoulderWidth = shoulderWidth || 0.15;
+        // Compute threshold once, based on relative shoulder width
+        const downDelta = state.task === 'pushups'
+          ? 0.45 * state.topShoulderWidth
+          : 0.85 * state.topShoulderWidth;
+        state.downThresholdY = state.topY + downDelta;
+        state.returnThresholdY = state.topY + downDelta * 0.5;
       }
 
-      // Determine threshold based on task
-      // Pushups: shoulders must drop noticeably. Squats: bigger drop.
-      const downDelta = state.task === 'pushups' ? 0.06 : 0.08;
-      const upTolerance = 0.02;
-      const downThreshold = state.baseY + downDelta;
-      const upThreshold = state.baseY - upTolerance;
+      // Smooth Y over 3 frames
+      state.yHistory.push(avgY);
+      if (state.yHistory.length > SMOOTHING_FRAMES) state.yHistory.shift();
+      const smoothY = state.yHistory.reduce((a,b) => a+b, 0) / state.yHistory.length;
 
-      // Depth bar
-      const depth = Math.max(0, Math.min(100, ((avgY - state.baseY) / 0.25) * 100));
+      // Depth bar (0..100)
+      const depthRange = (state.downThresholdY - state.topY) || 0.1;
+      const depth = Math.max(0, Math.min(100, ((smoothY - state.topY) / depthRange) * 100));
       if (state.depthBarEl) state.depthBarEl.style.width = depth + '%';
 
-      // State machine
-      if (state.phase === 'up' && avgY > downThreshold) {
+      // State machine with hysteresis
+      if (state.phase === 'up' && smoothY > state.downThresholdY) {
         state.phase = 'down';
         updatePoseStatus('Отлично, теперь вверх');
         haptic('selection');
-      } else if (state.phase === 'down' && avgY < upThreshold) {
+      } else if (state.phase === 'down' && smoothY < state.returnThresholdY) {
         state.phase = 'up';
         state.repCount++;
         updatePoseStatus(`Повторение ${state.repCount} из ${REPS_TARGET}`);
@@ -1659,53 +1401,66 @@
         const repEl = document.getElementById('repCounter');
         if (repEl) repEl.textContent = state.repCount;
         if (state.repCount >= REPS_TARGET) completeTask();
-      } else if (state.phase === 'up' && avgY <= upThreshold) {
+      } else if (state.phase === 'up' && smoothY <= state.returnThresholdY) {
         updatePoseStatus('Опустись ниже');
       }
 
-      drawOverlay(overlay, avgY, downThreshold, upThreshold);
+      drawOverlay(overlay, smoothY, state.downThresholdY, state.returnThresholdY, state.topY);
     }
 
-    function drawOverlay(canvas, currentY, downThreshold, upThreshold) {
+    function drawOverlay(canvas, currentY, downY, returnY, topY) {
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const w = canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
       const h = canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
       ctx.clearRect(0, 0, w, h);
 
-      if (downThreshold !== undefined && upThreshold !== undefined) {
-        // Target line (down-threshold)
-        ctx.strokeStyle = 'rgba(255,159,10,0.7)';
+      if (downY !== undefined && downY !== null) {
+        // Down target (amber dashed)
+        ctx.strokeStyle = 'rgba(255,159,10,0.8)';
         ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
-        ctx.setLineDash([6, 6]);
+        ctx.setLineDash([8, 6]);
         ctx.beginPath();
-        ctx.moveTo(0, downThreshold * h);
-        ctx.lineTo(w, downThreshold * h);
+        ctx.moveTo(0, downY * h);
+        ctx.lineTo(w, downY * h);
         ctx.stroke();
         ctx.setLineDash([]);
+      }
 
-        // Up threshold (softer line)
-        ctx.strokeStyle = 'rgba(48,209,88,0.4)';
+      if (returnY !== undefined && returnY !== null) {
+        // Return threshold (soft green)
+        ctx.strokeStyle = 'rgba(48,209,88,0.45)';
+        ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1);
         ctx.beginPath();
-        ctx.moveTo(0, upThreshold * h);
-        ctx.lineTo(w, upThreshold * h);
+        ctx.moveTo(0, returnY * h);
+        ctx.lineTo(w, returnY * h);
+        ctx.stroke();
+      }
+
+      if (topY !== undefined && topY !== null) {
+        // Top reference (soft white)
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1 * (window.devicePixelRatio || 1);
+        ctx.beginPath();
+        ctx.moveTo(0, topY * h);
+        ctx.lineTo(w, topY * h);
         ctx.stroke();
       }
 
       if (currentY !== null && currentY !== undefined) {
-        // Moving marker
         const my = currentY * h;
-        ctx.fillStyle = 'rgba(255,159,10,0.9)';
+        // Live marker
+        ctx.fillStyle = 'rgba(255,159,10,0.95)';
         ctx.beginPath();
-        ctx.arc(w / 2, my, 6 * (window.devicePixelRatio || 1), 0, Math.PI * 2);
+        ctx.arc(w / 2, my, 7 * (window.devicePixelRatio || 1), 0, Math.PI * 2);
         ctx.fill();
 
         // Horizontal band
-        ctx.strokeStyle = 'rgba(255,159,10,0.5)';
-        ctx.lineWidth = 1 * (window.devicePixelRatio || 1);
+        ctx.strokeStyle = 'rgba(255,159,10,0.55)';
+        ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1);
         ctx.beginPath();
-        ctx.moveTo(w * 0.15, my);
-        ctx.lineTo(w * 0.85, my);
+        ctx.moveTo(w * 0.18, my);
+        ctx.lineTo(w * 0.82, my);
         ctx.stroke();
       }
     }
@@ -1714,7 +1469,7 @@
       if (state.poseStatusEl) state.poseStatusEl.textContent = text;
     }
 
-    // ==================== LOW-LIGHT TRACKING ====================
+    // ==================== LOW-LIGHT ====================
     function markNoLandmark() {
       if (!state.noLandmarkSince) state.noLandmarkSince = Date.now();
       const elapsed = Date.now() - state.noLandmarkSince;
@@ -1732,7 +1487,7 @@
       }
     }
 
-    // ==================== MATH (5 PROBLEMS FOR LOW-LIGHT FALLBACK) ====================
+    // ==================== MATH ====================
     function generateMathProblems(count = 3) {
       const problems = [];
       for (let i = 0; i < count; i++) {
@@ -1759,9 +1514,11 @@
 
       state.repCount = 0;
       state.phase = 'up';
-      state.baseY = null;
+      state.topY = null;
+      state.topShoulderWidth = null;
       state.baseYSamples = [];
       state.calibrationStart = 0;
+      state.yHistory = [];
       state.noLandmarkSince = 0;
       state.lowLightTriggered = false;
 
@@ -1858,9 +1615,11 @@
       // Reset calibration
       state.repCount = 0;
       state.phase = 'up';
-      state.baseY = null;
+      state.topY = null;
+      state.topShoulderWidth = null;
       state.baseYSamples = [];
       state.calibrationStart = 0;
+      state.yHistory = [];
       state.noLandmarkSince = 0;
       state.lowLightTriggered = false;
 
