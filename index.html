@@ -64,6 +64,7 @@
     .premium-gold-banner {
       position: relative;
       width: 100%;
+      box-sizing: border-box;
       padding: 18px 20px;
       border-radius: 18px;
       background: linear-gradient(135deg, #FFD700 0%, #FF9F0A 100%);
@@ -74,6 +75,9 @@
       display: flex; align-items: center; gap: 14px;
       transition: transform 0.15s ease, box-shadow 0.2s ease;
       overflow: hidden;
+      white-space: normal;
+      word-wrap: break-word;
+      line-height: 1.3;
     }
     .premium-gold-banner:active { transform: scale(0.98); }
     .premium-gold-banner::before {
@@ -87,14 +91,15 @@
       0%, 70%, 100% { left: -60%; }
       35% { left: 130%; }
     }
-    .premium-gold-banner .crown { font-size: 26px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); }
-    .premium-gold-banner .banner-text { flex: 1; min-width: 0; }
+    .premium-gold-banner .crown { font-size: 26px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15)); flex-shrink: 0; }
+    .premium-gold-banner .banner-text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
     .premium-gold-banner .banner-title {
       font-size: 16px; font-weight: 800; letter-spacing: -0.2px; color: #1a1200;
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
     .premium-gold-banner .banner-sub {
       font-size: 12px; font-weight: 600; color: rgba(26,18,0,0.72); margin-top: 2px;
+      white-space: normal; word-wrap: break-word; line-height: 1.3;
     }
     .premium-gold-banner .chevron { color: rgba(26,18,0,0.6); flex-shrink: 0; }
     .premium-gold-banner.active-state {
@@ -110,20 +115,33 @@
 
     /* ==================== TIME DISPLAY (tap to edit) ==================== */
     .alarm-time-tap {
+      position: relative;
       background: #2C2C2E; border: 1px solid var(--card-border); border-radius: 14px;
       padding: 16px 8px; color: var(--text); font-size: 26px; font-weight: 300; text-align: center;
       font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
       cursor: pointer; width: 100%; display: block; letter-spacing: 0.5px;
       transition: border-color 0.2s ease, background 0.2s ease;
       font-family: inherit;
+      overflow: hidden;
     }
     .alarm-time-tap:active { background: #3A3A3C; border-color: var(--accent); }
-
-    /* Hidden native time input – we trigger via .showPicker() or .click() */
-    .native-time-input {
-      position: absolute; opacity: 0; pointer-events: none;
-      width: 1px; height: 1px; left: -9999px;
+    .alarm-time-tap .time-label { position: relative; z-index: 1; pointer-events: none; }
+    /* Native time input overlaid transparently on top of the digits */
+    .alarm-time-tap input[type="time"].native-time-overlay {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer; border: none; background: transparent;
+      font-size: 16px; color: transparent; -webkit-text-fill-color: transparent;
+      padding: 0; margin: 0; z-index: 2;
     }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-calendar-picker-indicator {
+      opacity: 0; width: 100%; height: 100%; position: absolute; inset: 0; cursor: pointer;
+    }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit { color: transparent; }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit-fields-wrapper { color: transparent; }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit-text { color: transparent; }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit-hour-field { color: transparent; }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit-minute-field { color: transparent; }
+    .alarm-time-tap input[type="time"].native-time-overlay::-webkit-datetime-edit-ampm-field { color: transparent; }
 
     /* ==================== BUTTONS ==================== */
     .btn {
@@ -370,6 +388,30 @@
       border: 1px solid rgba(255,159,10,0.25); font-weight: 600;
     }
 
+    /* ==================== TRIAL SUCCESS OVERLAY ==================== */
+    .trial-success-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      z-index: 2000; display: none; align-items: center; justify-content: center; padding: 30px;
+    }
+    .trial-success-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
+    .trial-success-card {
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 24px;
+      padding: 32px 24px; max-width: 380px; width: 100%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+    .trial-success-icon { font-size: 56px; margin-bottom: 16px; line-height: 1; }
+    .trial-success-title { font-size: 22px; font-weight: 800; margin-bottom: 12px; color: var(--success); }
+    .trial-success-text { font-size: 15px; line-height: 1.55; color: var(--text-secondary); margin-bottom: 10px; }
+    .trial-success-text b { color: var(--text); }
+    .trial-success-date { font-size: 16px; font-weight: 700; color: var(--accent); margin: 14px 0 20px; }
+    .trial-success-btn {
+      width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+      background: var(--success); color: #fff; cursor: pointer; font-family: inherit;
+      transition: transform 0.15s ease;
+    }
+    .trial-success-btn:active { transform: scale(0.97); }
+
     /* ==================== UTILITY ==================== */
     .hidden { display: none !important; }
     .separator { height: 1px; background: var(--separator); margin: 12px 0; }
@@ -430,7 +472,7 @@
         <div class="hint">Бесплатно — 1 будильник. Premium — до 5.</div>
       </div>
 
-      <!-- Selected alarm time (tap to edit) -->
+      <!-- Selected alarm time (tap to edit) – with native overlay -->
       <div class="card">
         <div class="card-header">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -438,8 +480,10 @@
           </svg>
           <span class="card-title">Время подъёма</span>
         </div>
-        <button type="button" class="alarm-time-tap" id="alarmTimeTap">07:00</button>
-        <input type="time" id="nativeTimeInput" class="native-time-input" step="60">
+        <div class="alarm-time-tap" id="alarmTimeTap">
+          <span class="time-label" id="alarmTimeLabel">07:00</span>
+          <input type="time" id="nativeTimeInput" class="native-time-overlay" step="60">
+        </div>
         <div class="hint">Нажмите на время, чтобы изменить</div>
       </div>
 
@@ -553,12 +597,12 @@
         <div class="hint">Premium. При изменении будильника отправляет время на сервер.</div>
       </div>
 
-      <!-- Test button -->
+      <!-- Test button (real alarm with task) -->
       <button class="btn btn-secondary" id="testBtn">
         <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        Тест звонка сейчас
+        Тест будильника (с заданием)
       </button>
 
       <!-- Night mode -->
@@ -605,15 +649,15 @@
 
       <div class="premium-feature">
         <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
-        <span><b>До 5 будильников</b> — с отдельным временем, мелодией и заданием</span>
+        <span><b>До 5 будильников</b> — разное время, мелодии и задания на каждый день</span>
       </div>
       <div class="premium-feature">
         <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
-        <span><b>Своя музыка</b> — загрузка MP3/M4A прямо с телефона</span>
+        <span><b>Своя музыка</b> — загрузка любых MP3/M4A/WAV файлов с телефона</span>
       </div>
       <div class="premium-feature">
         <span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
-        <span><b>Пуш-страховка ботом</b> — звонок в Telegram, даже если приложение закрыто</span>
+        <span><b>Страховка ботом</b> — автоматический звонок в Telegram, если телефон разрядился или приложение закрылось</span>
       </div>
 
       <div class="separator"></div>
@@ -621,6 +665,20 @@
       <div id="premiumPlanCards"></div>
 
       <button class="modal-close" id="premiumModalClose">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Trial success overlay -->
+  <div class="trial-success-overlay" id="trialSuccessOverlay">
+    <div class="trial-success-card">
+      <div class="trial-success-icon">🎉</div>
+      <div class="trial-success-title">Пробный период активирован!</div>
+      <div class="trial-success-text">
+        Все функции Premium доступны <b>3 дня (72 часа)</b>.<br>
+        По истечении этого срока подписка отключится автоматически — <b>никаких списаний не будет</b>.
+      </div>
+      <div class="trial-success-date" id="trialSuccessDate">—</div>
+      <button class="trial-success-btn" id="trialSuccessBtn">Отлично, попробовать</button>
     </div>
   </div>
 
@@ -683,6 +741,7 @@
     const alarmList = document.getElementById('alarmList');
     const addAlarmBtn = document.getElementById('addAlarmBtn');
     const alarmTimeTap = document.getElementById('alarmTimeTap');
+    const alarmTimeLabel = document.getElementById('alarmTimeLabel');
     const nativeTimeInput = document.getElementById('nativeTimeInput');
     const premiumBanner = document.getElementById('premiumBanner');
     const premiumBannerIcon = document.getElementById('premiumBannerIcon');
@@ -705,6 +764,9 @@
     const scanReferenceBtn = document.getElementById('scanReferenceBtn');
     const resetBarcodeBtn = document.getElementById('resetBarcodeBtn');
     const backupBotToggle = document.getElementById('backupBotToggle');
+    const trialSuccessOverlay = document.getElementById('trialSuccessOverlay');
+    const trialSuccessDate = document.getElementById('trialSuccessDate');
+    const trialSuccessBtn = document.getElementById('trialSuccessBtn');
 
     // ==================== CONSTANTS ====================
     const STORAGE_KEY = 'smart_alarm_state_v9';
@@ -746,6 +808,7 @@
       premium: { trialEndsAt: null, subscription: false, cancelAt: null, autoRenewCanceled: false },
       trialUsed: false,
       backupEnabled: false,
+      testMode: false,
     };
 
     // ==================== PERSISTENCE ====================
@@ -860,7 +923,12 @@
       state.trialUsed = true;
       savePremium();
       refreshPremiumUI();
-      showToast('Пробный период на 3 дня активирован!', 3000);
+      // Show confirmation overlay instead of just closing
+      const endDate = new Date(state.premium.trialEndsAt);
+      const endStr = `${String(endDate.getDate()).padStart(2,'0')}.${String(endDate.getMonth()+1).padStart(2,'0')}.${endDate.getFullYear()} ${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')}`;
+      trialSuccessDate.textContent = `Действует до ${endStr}`;
+      trialSuccessOverlay.classList.add('active');
+      haptic('success');
     }
 
     // ==================== INIT ====================
@@ -943,8 +1011,9 @@
     function updateSelectedAlarmUI() {
       const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
       if (!alarm) return;
-      alarmTimeTap.textContent = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
-      nativeTimeInput.value = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
+      const timeStr = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
+      alarmTimeLabel.textContent = timeStr;
+      nativeTimeInput.value = timeStr;
       document.querySelectorAll('#melodyGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.melody === alarm.melody && !alarm.customMelody));
       document.querySelectorAll('#taskGrid .choice').forEach(c => c.classList.toggle('active', c.dataset.task === alarm.task));
       customMelodyRow.classList.toggle('active', !!alarm.customMelody);
@@ -989,25 +1058,7 @@
 
     addAlarmBtn.addEventListener('click', addAlarm);
 
-    // ==================== TIME PICKER ====================
-    function openTimePicker() {
-      const alarm = state.alarms.find(a => a.id === state.selectedAlarmId);
-      if (!alarm) return;
-      nativeTimeInput.value = `${String(alarm.hour).padStart(2,'0')}:${String(alarm.minute).padStart(2,'0')}`;
-      // Try modern showPicker() first
-      if (typeof nativeTimeInput.showPicker === 'function') {
-        try { nativeTimeInput.showPicker(); return; } catch(e) {}
-      }
-      // Fallback: focus + click
-      nativeTimeInput.focus();
-      nativeTimeInput.click();
-    }
-
-    alarmTimeTap.addEventListener('click', () => {
-      haptic('selection');
-      openTimePicker();
-    });
-
+    // ==================== TIME PICKER (native overlay) ====================
     nativeTimeInput.addEventListener('change', () => {
       const val = nativeTimeInput.value; // "HH:MM"
       if (!val) return;
@@ -1021,13 +1072,25 @@
       alarm.hour = h;
       alarm.minute = m;
       haptic('success');
-      alarmTimeTap.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      alarmTimeLabel.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
       renderAlarmList();
       saveState();
       updateAlarmBadge();
       updateCountdown(new Date());
       syncBackupBot(alarm);
       showToast(`Время сохранено: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    });
+
+    // Also try to open picker on tap if browser supports showPicker
+    alarmTimeTap.addEventListener('click', (e) => {
+      // If the click landed on the input, let it handle natively
+      if (e.target === nativeTimeInput) return;
+      // Otherwise, try showPicker
+      if (typeof nativeTimeInput.showPicker === 'function') {
+        try { nativeTimeInput.showPicker(); return; } catch(err) {}
+      }
+      nativeTimeInput.focus();
+      nativeTimeInput.click();
     });
 
     // ==================== CLOCK + COUNTDOWN ====================
@@ -1774,7 +1837,11 @@
     }
 
     function completeTask() {
-      showToast('Задание выполнено! Будильник отключён.', 3000);
+      if (state.testMode) {
+        showToast('Задание выполнено! Тестовый будильник отключён.', 3000);
+      } else {
+        showToast('Задание выполнено! Будильник отключён.', 3000);
+      }
       haptic('success');
       stopAlarm();
     }
@@ -1783,6 +1850,7 @@
     async function triggerAlarm(isTest = false) {
       if (state.ringing) return;
       state.ringing = true;
+      state.testMode = isTest;
       try { localStorage.setItem(RING_FLAG, '1'); } catch(e) {}
       saveState();
       state.repCount = 0;
@@ -1812,12 +1880,20 @@
       stopAlarmBtn.classList.add('hidden');
       taskArea.innerHTML = '';
       state.mathProblems = []; state.mathIndex = 0; state.mathCorrect = 0;
+
       if (isTest) {
+        // Always show the selected alarm's task, even in test mode
         stopAlarmBtn.classList.remove('hidden');
+        // small label for test mode
         const testMsg = document.createElement('div');
-        testMsg.style.cssText = 'color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:16px;';
-        testMsg.textContent = 'Тестовый режим — задание не требуется';
+        testMsg.style.cssText = 'color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:8px;';
+        testMsg.textContent = 'Тестовый режим — выполните задание, чтобы отключить';
         taskArea.appendChild(testMsg);
+        const task = alarm?.task || 'math';
+        if (task === 'math') setupMathTask(3);
+        else if (task === 'memory') setupMemoryTask();
+        else if (task === 'barcode') await setupBarcodeTask();
+        else setupMathTask(3);
       } else {
         const task = alarm?.task || 'math';
         if (task === 'math') setupMathTask(3);
@@ -1832,6 +1908,8 @@
     function stopAlarm() {
       if (!state.ringing) return;
       state.ringing = false;
+      const wasTest = state.testMode;
+      state.testMode = false;
       try { localStorage.removeItem(RING_FLAG); } catch(e) {}
       stopWavAlarm();
       stopSquatDetector(); stopPushupDetector(); stopBarcodeScanner();
@@ -1839,7 +1917,7 @@
       ringOverlay.classList.remove('active');
       taskArea.innerHTML = '';
       const alarm = state.alarms.find(a => a.id === state.ringingAlarmId);
-      if (alarm) alarm.enabled = false;
+      if (alarm && !wasTest) alarm.enabled = false;
       state.ringingAlarmId = null;
       state.lastTriggeredMinute = null;
       nightExitBtn.style.display = '';
@@ -1856,9 +1934,15 @@
 
     stopAlarmBtn.addEventListener('click', () => { stopAlarm(); });
 
-    // ==================== TEST ====================
+    // ==================== TEST (real alarm with task) ====================
     testBtn.addEventListener('click', async () => {
-      initAudioCtx(); haptic('medium'); triggerAlarm(true);
+      initAudioCtx(); haptic('medium');
+      // Ensure selected alarm exists
+      if (!state.selectedAlarmId && state.alarms.length > 0) {
+        state.selectedAlarmId = state.alarms[0].id;
+      }
+      state.ringingAlarmId = state.selectedAlarmId;
+      triggerAlarm(true);
     });
 
     // ==================== NIGHT MODE ====================
@@ -1947,7 +2031,7 @@
       let cardsHtml = '';
 
       if (trialActive) {
-        // Trial active: show explanation + cancel renewal / upgrade options
+        // Trial active: show explanation + upgrade option
         cardsHtml += `
           <div class="plan-card trial-card">
             <div class="plan-card-title">Пробный период <span class="plan-badge free">Активен</span></div>
@@ -1957,7 +2041,6 @@
             </div>
           </div>
         `;
-        // Upgrade to subscription option
         cardsHtml += `
           <div class="plan-card sub-card">
             <div class="plan-card-title">Полный доступ — 150 ⭐ / мес <span class="plan-badge">Выгодно</span></div>
@@ -1968,7 +2051,6 @@
           </div>
         `;
       } else if (subActive) {
-        // Subscription active
         if (state.premium.autoRenewCanceled) {
           cardsHtml += `
             <div class="plan-card sub-card">
@@ -2019,12 +2101,19 @@
 
       // Wire buttons
       const btnStartTrial = document.getElementById('btnStartTrial');
-      if (btnStartTrial) btnStartTrial.addEventListener('click', () => { startTrial(); updatePremiumModal(); });
+      if (btnStartTrial) btnStartTrial.addEventListener('click', () => { startTrial(); });
       const btnSubscribe = document.getElementById('btnSubscribe');
       if (btnSubscribe) btnSubscribe.addEventListener('click', subscribePremium);
       const btnCancelRenew = document.getElementById('btnCancelRenew');
       if (btnCancelRenew) btnCancelRenew.addEventListener('click', cancelSubscription);
     }
+
+    // Close premium modal when trial confirmed
+    trialSuccessBtn.addEventListener('click', () => {
+      trialSuccessOverlay.classList.remove('active');
+      premiumModal.classList.remove('active');
+      updatePremiumModal();
+    });
 
     async function subscribePremium() {
       if (!TG_ID) { showToast('Telegram ID не определён'); return; }
@@ -2123,7 +2212,7 @@
       if (state.ringing && alarmAudio.paused && alarmAudio.src) alarmAudio.play().catch(() => {});
     });
 
-    console.log('Smart Alarm v9 loaded');
+    console.log('Smart Alarm v10 loaded');
   </script>
 </body>
 </html>
