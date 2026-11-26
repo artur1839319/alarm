@@ -2214,5 +2214,91 @@
 
     console.log('Smart Alarm v10 loaded');
   </script>
+<script>
+(function() {
+  const FUNCTION_URL = 'https://supabase.co';
+  const API_KEY = 'sb_publishable_bPwZYPAEJmB75VFVu9ocAw_xlaKqwnO';
+
+  async function startStarsPayment(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg) {
+      alert('Откройте приложение внутри Telegram для оплаты звёздами.');
+      return;
+    }
+
+    const btn = e && e.currentTarget ? e.currentTarget : null;
+    const oldText = btn ? btn.innerText : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = 'Создаём счёт...';
+    }
+
+    try {
+      const response = await fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY
+        },
+        body: JSON.stringify({ userId: tg.initDataUnsafe?.user?.id || 0 })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.invoiceLink) {
+        throw new Error(data.error || 'Не удалось получить ссылку на оплату');
+      }
+
+      tg.openInvoice(data.invoiceLink, function(status) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = oldText;
+        }
+        if (status === 'paid') {
+          localStorage.setItem('isPremium', 'true');
+          localStorage.setItem('premium', 'true');
+          tg.showAlert('🎉 Оплата 150 звёзд прошла успешно! Premium активирован.');
+          setTimeout(() => location.reload(), 800);
+        } else if (status === 'failed') {
+          tg.showAlert('Оплата не прошла. Попробуйте ещё раз.');
+        }
+      });
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = oldText;
+      }
+      if (tg.showAlert) {
+        tg.showAlert('Ошибка: ' + err.message);
+      } else {
+        alert('Ошибка: ' + err.message);
+      }
+    }
+  }
+
+  function bindPremiumButtons() {
+    const elements = document.querySelectorAll('button, a, div[role="button"]');
+    elements.forEach(el => {
+      const text = (el.innerText || '').toLowerCase();
+      if ((text.includes('150') || text.includes('премиум') || text.includes('premium')) &&
+          (text.includes('купить') || text.includes('получить') || text.includes('оплатить') || text.includes('150'))) {
+        if (!el.dataset.starsBound) {
+          el.dataset.starsBound = '1';
+          el.addEventListener('click', startStarsPayment, true);
+        }
+      }
+    });
+  }
+
+  setInterval(bindPremiumButtons, 1000);
+  document.addEventListener('DOMContentLoaded', bindPremiumButtons);
+})();
+</script>
+
 </body>
 </html>
