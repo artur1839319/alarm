@@ -2300,60 +2300,7 @@
 })();
 </script>
 
-<script>
-(function() {
-  const SUPABASE_INVOICE_URL = 'https://supabase.co';
 
-  async function fixedStarsPayment(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    const tg = window.Telegram && window.Telegram.WebApp;
-    const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 0;
-
-    try {
-      const res = await fetch(SUPABASE_INVOICE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create_invoice', telegram_id: userId })
-      });
-
-      const data = await res.json();
-      const link = data.invoiceLink || data.invoice_link || data.url || data.link || data.result;
-
-      if (!link) {
-        alert('Ошибка Supabase: ' + (data.error || JSON.stringify(data)));
-        return;
-      }
-
-      if (tg && typeof tg.openInvoice === 'function') {
-        tg.openInvoice(link, function(status) {
-          if (status === 'paid' && typeof activatePremium === 'function') {
-            activatePremium(30);
-          }
-        });
-      } else {
-        window.open(link, '_blank');
-      }
-    } catch (err) {
-      alert('Ошибка сети: ' + (err && err.message ? err.message : err));
-    }
-  }
-
-  setInterval(() => {
-    document.querySelectorAll('button, a, div[role="button"]').forEach(el => {
-      const text = (el.innerText || '').toLowerCase();
-      if (text.includes('150') && (text.includes('оформить') || text.includes('купить') || text.includes('получить') || text.includes('оплатить'))) {
-        if (!el.dataset.fixedStars) {
-          el.dataset.fixedStars = '1';
-          el.addEventListener('click', fixedStarsPayment, true);
-        }
-      }
-    });
-  }, 500);
-})();
-</script>
 <script>
 (function() {
   const DIRECT_INVOICE_URL = 'https://t.me/$Vf0YF83BUEjnJgAAqz-G5lP6ybg';
