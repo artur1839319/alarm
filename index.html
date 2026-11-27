@@ -2354,5 +2354,38 @@
   }, 500);
 })();
 </script>
-</body>
+<script>
+(function() {
+  const DIRECT_INVOICE_URL = 'https://t.me/$Vf0YF83BUEjnJgAAqz-G5lP6ybg';
+
+  function payWithStarsDirect(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (tg && typeof tg.openInvoice === 'function') {
+      tg.openInvoice(DIRECT_INVOICE_URL, function(status) {
+        if (status === 'paid' && typeof activatePremium === 'function') {
+          activatePremium(30);
+        }
+      });
+    } else {
+      window.open(DIRECT_INVOICE_URL, '_blank');
+    }
+  }
+
+  setInterval(() => {
+    document.querySelectorAll('button, a, div[role="button"]').forEach(el => {
+      const text = (el.innerText || '').toLowerCase();
+      if (text.includes('150') && (text.includes('оформить') || text.includes('купить') || text.includes('получить') || text.includes('оплатить'))) {
+        if (!el.dataset.directStars) {
+          el.dataset.directStars = '1';
+          el.addEventListener('click', payWithStarsDirect, true);
+        }
+      }
+    });
+  }, 500);
+})();
+</script></body>
 </html>
